@@ -188,7 +188,8 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     *body_id,
                 );
             }
-            hir::ItemKind::Const(ref typ, body_id) => {
+            // TODO - skius: Pass generics along.
+            hir::ItemKind::Const(ref typ, _generics, body_id) => {
                 self.visit_static(
                     def_path,
                     name,
@@ -203,7 +204,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                 unsafety,
                 polarity,
                 defaultness,
-                constness,
+                // constness,
                 of_trait,
                 ..
             }) => {
@@ -218,7 +219,9 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     unsafety.convert_into(),
                     polarity.convert_into(),
                     defaultness.convert_into(),
-                    constness.convert_into(),
+                    // TODO - skius: DISCUSS: What to do here?
+                    // constness.convert_into(),
+                    types::Constness::Unknown,
                     interned_type,
                 );
                 if let Some(trait_ref) = of_trait {
@@ -300,9 +303,11 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     self.filler.tables.register_trait_items(
                         item_id,
                         trait_item_def_path,
-                        self.tcx
-                            .impl_defaultness(trait_item.id.owner_id.def_id)
-                            .convert_into(),
+                        // TODO - skius: DISCUSS: What to do here?
+                        types::Defaultness::Unknown,
+                        // self.tcx
+                        //     .impl_defaultness(trait_item.id.owner_id.def_id)
+                        //     .convert_into(),
                     )
                 }
                 let old_item = mem::replace(&mut self.current_item, Some(item_id));
