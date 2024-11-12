@@ -147,7 +147,8 @@ impl<'tcx> ConvertInto<types::AggregateKind> for mir::AggregateKind<'tcx> {
             mir::AggregateKind::Tuple => types::AggregateKind::Tuple,
             mir::AggregateKind::Adt(..) => types::AggregateKind::Adt,
             mir::AggregateKind::Closure(..) => types::AggregateKind::Closure,
-            mir::AggregateKind::Generator(..) => types::AggregateKind::Generator,
+            // TODO - skius: Remove Generator AggregateKind?
+            // mir::AggregateKind::Generator(..) => types::AggregateKind::Generator,
         }
     }
 }
