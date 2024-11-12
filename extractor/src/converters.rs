@@ -96,14 +96,14 @@ impl ConvertInto<types::BorrowKind> for mir::BorrowKind {
         match self {
             mir::BorrowKind::Shared => types::BorrowKind::Shared,
             mir::BorrowKind::Shallow => types::BorrowKind::Shallow,
-            mir::BorrowKind::Unique => types::BorrowKind::Unique,
             mir::BorrowKind::Mut {
-                allow_two_phase_borrow,
+                kind,
             } => {
-                if *allow_two_phase_borrow {
-                    types::BorrowKind::MutTwoPhase
-                } else {
-                    types::BorrowKind::Mut
+                match kind {
+                    mir::MutBorrowKind::Default => types::BorrowKind::Mut,
+                    mir::MutBorrowKind::TwoPhaseBorrow => types::BorrowKind::MutTwoPhase,
+                    // TODO - skius: Rename our name?
+                    mir::MutBorrowKind::ClosureCapture => types::BorrowKind::Unique,
                 }
             }
         }
