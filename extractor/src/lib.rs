@@ -30,10 +30,8 @@ use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::def_id::DefId;
 use rustc_interface::interface::Compiler;
 use rustc_interface::Queries;
-use rustc_middle::ty::{
-    query::{ExternProviders, Providers},
-    TyCtxt,
-};
+use rustc_middle::query::{ExternProviders, Providers};
+use rustc_middle::ty::TyCtxt;
 use rustc_session::Session;
 use rustc_span::def_id::LocalDefId;
 use std::collections::HashMap;
@@ -68,7 +66,7 @@ fn analyse_with_tcx(name: String, tcx: TyCtxt, session: &Session) {
         cargo_pkg_name,
         cargo_pkg_version,
         name,
-        hash.as_u64().into(),
+        hash.as_u128().into(),
         session.opts.edition.to_string(),
     );
 
