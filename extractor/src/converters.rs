@@ -113,18 +113,18 @@ impl ConvertInto<types::BorrowKind> for mir::BorrowKind {
 impl ConvertInto<types::CastKind> for mir::CastKind {
     fn convert_into(&self) -> types::CastKind {
         match self {
-            mir::CastKind::Pointer(pointer) => match pointer {
-                ty::adjustment::PointerCast::ReifyFnPointer => types::CastKind::ReifyFnPointer,
-                ty::adjustment::PointerCast::UnsafeFnPointer => types::CastKind::UnsafeFnPointer,
-                ty::adjustment::PointerCast::ClosureFnPointer(usafety) => match usafety {
+            mir::CastKind::PointerCoercion(coercion) => match coercion {
+                ty::adjustment::PointerCoercion::ReifyFnPointer => types::CastKind::ReifyFnPointer,
+                ty::adjustment::PointerCoercion::UnsafeFnPointer => types::CastKind::UnsafeFnPointer,
+                ty::adjustment::PointerCoercion::ClosureFnPointer(usafety) => match usafety {
                     hir::Unsafety::Unsafe => types::CastKind::UnsafeClosureFnPointer,
                     hir::Unsafety::Normal => types::CastKind::NormalClosureFnPointer,
                 },
-                ty::adjustment::PointerCast::MutToConstPointer => {
+                ty::adjustment::PointerCoercion::MutToConstPointer => {
                     types::CastKind::MutToConstPointer
                 }
-                ty::adjustment::PointerCast::ArrayToPointer => types::CastKind::ArrayToPointer,
-                ty::adjustment::PointerCast::Unsize => types::CastKind::UnsizePointer,
+                ty::adjustment::PointerCoercion::ArrayToPointer => types::CastKind::ArrayToPointer,
+                ty::adjustment::PointerCoercion::Unsize => types::CastKind::UnsizePointer,
             },
             mir::CastKind::PointerExposeAddress => types::CastKind::PointerExposeAddress,
             mir::CastKind::PointerFromExposedAddress => types::CastKind::PointerFromExposedAddress,
