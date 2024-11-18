@@ -19,11 +19,13 @@ impl ConvertInto<types::TyVisibility> for ty::Visibility<rustc_hir::def_id::DefI
     }
 }
 
-impl ConvertInto<types::Unsafety> for hir::Unsafety {
+// TODO - skius(2): Rename Unsafety to Safety?
+impl ConvertInto<types::Unsafety> for hir::Safety {
     fn convert_into(&self) -> types::Unsafety {
         match self {
-            hir::Unsafety::Unsafe => types::Unsafety::Unsafe,
-            hir::Unsafety::Normal => types::Unsafety::Normal,
+            hir::Safety::Unsafe => types::Unsafety::Unsafe,
+            // TODO - skius(2): Rename Normal to Safe?
+            hir::Safety::Safe => types::Unsafety::Normal,
         }
     }
 }
@@ -121,8 +123,9 @@ impl ConvertInto<types::CastKind> for mir::CastKind {
                 ty::adjustment::PointerCoercion::ReifyFnPointer => types::CastKind::ReifyFnPointer,
                 ty::adjustment::PointerCoercion::UnsafeFnPointer => types::CastKind::UnsafeFnPointer,
                 ty::adjustment::PointerCoercion::ClosureFnPointer(usafety) => match usafety {
-                    hir::Unsafety::Unsafe => types::CastKind::UnsafeClosureFnPointer,
-                    hir::Unsafety::Normal => types::CastKind::NormalClosureFnPointer,
+                    hir::Safety::Unsafe => types::CastKind::UnsafeClosureFnPointer,
+                    // TODO - skius: Rename Normal to Safe?
+                    hir::Safety::Safe => types::CastKind::NormalClosureFnPointer,
                 },
                 ty::adjustment::PointerCoercion::MutToConstPointer => {
                     types::CastKind::MutToConstPointer
@@ -162,13 +165,15 @@ impl<'tcx> ConvertInto<types::AggregateKind> for mir::AggregateKind<'tcx> {
     }
 }
 
-impl ConvertInto<types::ScopeSafety> for Option<mir::Safety> {
+// TODO - skius(2): is rustc_middle::thir::BlockSafety the right type?
+impl ConvertInto<types::ScopeSafety> for Option<rustc_middle::thir::BlockSafety> {
     fn convert_into(&self) -> types::ScopeSafety {
         match self {
-            Some(mir::Safety::Safe) => types::ScopeSafety::Safe,
-            Some(mir::Safety::BuiltinUnsafe) => types::ScopeSafety::BuiltinUnsafe,
-            Some(mir::Safety::FnUnsafe) => types::ScopeSafety::FnUnsafe,
-            Some(mir::Safety::ExplicitUnsafe(_)) => types::ScopeSafety::ExplicitUnsafe,
+            Some(rustc_middle::thir::BlockSafety::Safe) => types::ScopeSafety::Safe,
+            Some(rustc_middle::thir::BlockSafety::BuiltinUnsafe) => types::ScopeSafety::BuiltinUnsafe,
+            // TODO - skius(2): Remove FnUnsafe downstream
+            // Some(rustc_middle::thir::BlockSafety::FnUnsafe) => types::ScopeSafety::FnUnsafe,
+            Some(rustc_middle::thir::BlockSafety::ExplicitUnsafe(_)) => types::ScopeSafety::ExplicitUnsafe,
             None => types::ScopeSafety::Unknown,
         }
     }
