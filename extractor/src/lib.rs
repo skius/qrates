@@ -26,14 +26,15 @@ mod table_filler;
 mod utils;
 
 use lazy_static::lazy_static;
-use rustc_data_structures::fx::FxHashSet;
+use rustc_data_structures::fx::FxIndexSet;
 use rustc_hir::def_id::DefId;
 use rustc_interface::interface::Compiler;
 use rustc_interface::Queries;
-use rustc_middle::query::{ExternProviders, Providers};
+use rustc_middle::query::Providers;
 use rustc_middle::ty::TyCtxt;
 use rustc_session::Session;
 use rustc_span::def_id::LocalDefId;
+use rustc_span::Symbol;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs::File;
@@ -49,7 +50,7 @@ struct SharedState {
     function_unsafe_use: HashMap<DefId, bool>,
     function_unsafe_reasons: HashMap<DefId, Vec<&'static str>>,
     /// What `cfg!` configuration is enabled for this crate?
-    crate_cfg: Vec<(String, Option<String>)>,
+    crate_cfg: Vec<(Symbol, Option<Symbol>)>,
 }
 
 lazy_static! {
@@ -142,12 +143,10 @@ fn analyse_with_tcx(name: String, tcx: TyCtxt, session: &Session) {
         for (key, value) in &state.crate_cfg {
             filler.tables.register_crate_cfgs(
                 build,
-                key.clone(),
+                key.clone().to_string(),
                 value
-                    .as_ref()
-                    .map(String::as_str)
-                    .unwrap_or("n/a")
-                    .to_string(),
+                    .map(|sym| sym.to_string())
+                    .unwrap_or("n/a".to_string()),
             );
         }
     }
@@ -188,8 +187,7 @@ pub fn analyse<'tcx>(compiler: &Compiler, queries: &'tcx Queries<'tcx>) {
 
 pub fn override_queries(
     _session: &Session,
-    providers: &mut Providers,
-    _providers_extern: &mut ExternProviders,
+    providers: &mut rustc_middle::util::Providers,
 ) {
     providers.unsafety_check_result = unsafety_check_result;
     // providers.unsafety_check_result_for_const_arg = unsafety_check_result_for_const_arg;
@@ -242,7 +240,7 @@ fn unsafety_check_result<'tcx>(
 // }
 
 /// Save `cfg!` configuration.
-pub fn save_cfg_configuration(set: &FxHashSet<(String, Option<String>)>) {
+pub fn save_cfg_configuration(set: &FxIndexSet<(Symbol, Option<Symbol>)>) {
     let mut state = SHARED_STATE.lock().unwrap();
     state.crate_cfg = set.iter().cloned().collect();
 }

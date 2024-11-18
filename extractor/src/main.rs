@@ -6,6 +6,7 @@
 
 extern crate rustc_driver;
 extern crate rustc_interface;
+extern crate rustc_session;
 
 use corpus_extractor::{analyse, override_queries, save_cfg_configuration};
 use rustc_driver::Compilation;
@@ -14,12 +15,13 @@ use rustc_interface::{
     Queries,
 };
 use std::process;
+use rustc_session::EarlyErrorHandler;
 
 struct CorpusCallbacks {}
 
 impl rustc_driver::Callbacks for CorpusCallbacks {
     fn config(&mut self, config: &mut Config) {
-        save_cfg_configuration(&config.crate_cfg);
+        // save_cfg_configuration(&config.crate_cfg);
         config.override_queries = Some(override_queries);
     }
 
@@ -28,13 +30,16 @@ impl rustc_driver::Callbacks for CorpusCallbacks {
         compiler: &Compiler,
         queries: &'tcx Queries<'tcx>,
     ) -> Compilation {
+        // TODO - skius: Check that moving from String-based to Symbol-based (and from config-stage to analysis-stage is fine)
+        save_cfg_configuration(&compiler.session().parse_sess.config);
         analyse(compiler, queries);
         Compilation::Continue
     }
 }
 
 fn main() {
-    rustc_driver::init_rustc_env_logger();
+    let handler = EarlyErrorHandler::new(Default::default());
+    rustc_driver::init_rustc_env_logger(&handler);
     let mut callbacks = CorpusCallbacks {};
     let exit_code = rustc_driver::catch_with_exit_code(|| {
         use std::env;
