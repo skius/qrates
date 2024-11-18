@@ -41,7 +41,7 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
     pub fn resolve_def_id(&mut self, def_id: hir::def_id::DefId) -> types::DefPath {
         let crate_num = def_id.krate;
         let crate_name = self.tcx.crate_name(crate_num).as_str().to_string();
-        let crate_hash = self.tcx.crate_hash(crate_num).as_u64().into();
+        let crate_hash = self.tcx.crate_hash(crate_num).as_u128().into();
         let def_path_str = self.tcx.def_path_debug_str(def_id);
         let def_path_hash = {
             let (f, s) = self.tcx.def_path_hash(def_id).0.split();
@@ -81,7 +81,7 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                 call_site_span,
                 expansion_data.kind.convert_into(),
                 expansion_data.kind.descr().to_string(),
-                location.file.name.prefer_remapped().to_string(),
+                location.file.name.prefer_remapped_unconditionaly().to_string(),
                 location.line as u16,
                 location.col.to_usize() as u16,
             );
@@ -90,7 +90,7 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                 self.tables.register_macro_expansions(
                     interned_span,
                     symbol.to_string(),
-                    def_site_location.file.name.prefer_remapped().to_string(),
+                    def_site_location.file.name.prefer_remapped_unconditionaly().to_string(),
                     def_site_location.line as u16,
                     def_site_location.col.to_usize() as u16,
                 );
@@ -261,19 +261,22 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                         .register_types_closure(interned_type, closure_def_path);
                     interned_type
                 }
-                ty::TyKind::Generator(def_id, _substs, _movability) => {
+                // TODO - skius: Rename to 'Coroutine'?
+                ty::TyKind::Coroutine(def_id, _substs, _movability) => {
                     let interned_type = self.insert_new_type_into_table("Generator", typ);
                     let generator_def_path = self.resolve_def_id(*def_id);
                     self.tables
                         .register_types_generator(interned_type, generator_def_path);
                     interned_type
                 }
-                ty::TyKind::GeneratorWitness(_binder) => {
-                    let interned_type = self.insert_new_type_into_table("GeneratorWitness", typ);
-                    self.tables.register_types_generator_witness(interned_type);
-                    interned_type
-                }
-                ty::TyKind::GeneratorWitnessMIR(_def_id, _substs) => {
+                // TODO - skius: Double check that the successor of MIR is really the default.
+                // ty::TyKind::GeneratorWitness(_binder) => {
+                //     let interned_type = self.insert_new_type_into_table("GeneratorWitness", typ);
+                //     self.tables.register_types_generator_witness(interned_type);
+                //     interned_type
+                // }
+                // TODO - skius: Rename to 'CoroutineWitness'?
+                ty::TyKind::CoroutineWitness(_def_id, _substs) => {
                     let interned_type = self.insert_new_type_into_table("GeneratorWitnessMIR", typ);
                     self.tables.register_types_generator_witness(interned_type);
                     interned_type
@@ -308,6 +311,15 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                         let interned_type = self.insert_new_type_into_table("Opaque", typ);
                         let def_path = self.resolve_def_id(alias_type.def_id);
                         self.tables.register_types_opaque(interned_type, def_path);
+                        interned_type
+                    }
+                    // TODO - skius: Properly handle Inherent and Weak. Needs 'register_types_' functions!
+                    ty::AliasKind::Inherent => {
+                        let interned_type = self.insert_new_type_into_table("Inherent", typ);
+                        interned_type
+                    }
+                    ty::AliasKind::Weak => {
+                        let interned_type = self.insert_new_type_into_table("Weak", typ);
                         interned_type
                     }
                 },
