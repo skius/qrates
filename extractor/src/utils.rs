@@ -99,7 +99,7 @@ fn build_pretty_description<'t>(
             let generics = tcx.generics_of(def_id);
 
             let resolved_generics = generics
-                .own_substs_no_defaults(tcx, substs)
+                .own_args_no_defaults(tcx, substs)
                 .iter()
                 .flat_map(|arg| {
                     use ty::GenericArgKind::*;
