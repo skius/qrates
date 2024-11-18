@@ -96,7 +96,9 @@ impl ConvertInto<types::BorrowKind> for mir::BorrowKind {
     fn convert_into(&self) -> types::BorrowKind {
         match self {
             mir::BorrowKind::Shared => types::BorrowKind::Shared,
-            mir::BorrowKind::Shallow => types::BorrowKind::Shallow,
+            mir::BorrowKind::Fake(mir::FakeBorrowKind::Shallow) => types::BorrowKind::Shallow,
+            // TODO - skius(2): Add Deep borrowkind downstream
+            mir::BorrowKind::Fake(mir::FakeBorrowKind::Deep) => types::BorrowKind::Deep,
             mir::BorrowKind::Mut {
                 kind,
             } => {
@@ -114,7 +116,8 @@ impl ConvertInto<types::BorrowKind> for mir::BorrowKind {
 impl ConvertInto<types::CastKind> for mir::CastKind {
     fn convert_into(&self) -> types::CastKind {
         match self {
-            mir::CastKind::PointerCoercion(coercion) => match coercion {
+            // TODO - skius(2): use _source ?
+            mir::CastKind::PointerCoercion(coercion, _source) => match coercion {
                 ty::adjustment::PointerCoercion::ReifyFnPointer => types::CastKind::ReifyFnPointer,
                 ty::adjustment::PointerCoercion::UnsafeFnPointer => types::CastKind::UnsafeFnPointer,
                 ty::adjustment::PointerCoercion::ClosureFnPointer(usafety) => match usafety {
@@ -126,10 +129,11 @@ impl ConvertInto<types::CastKind> for mir::CastKind {
                 }
                 ty::adjustment::PointerCoercion::ArrayToPointer => types::CastKind::ArrayToPointer,
                 ty::adjustment::PointerCoercion::Unsize => types::CastKind::UnsizePointer,
+                ty::adjustment::PointerCoercion::DynStar => types::CastKind::DynStar,
             },
-            mir::CastKind::PointerExposeAddress => types::CastKind::PointerExposeAddress,
-            mir::CastKind::PointerFromExposedAddress => types::CastKind::PointerFromExposedAddress,
-            mir::CastKind::DynStar => types::CastKind::DynStar,
+            // TODO - skius(2): Rename below two downstream?
+            mir::CastKind::PointerExposeProvenance => types::CastKind::PointerExposeAddress,
+            mir::CastKind::PointerWithExposedProvenance => types::CastKind::PointerFromExposedAddress,
             mir::CastKind::IntToInt => types::CastKind::IntToInt,
             mir::CastKind::FloatToInt => types::CastKind::FloatToInt,
             mir::CastKind::IntToFloat => types::CastKind::IntToFloat,
@@ -152,6 +156,8 @@ impl<'tcx> ConvertInto<types::AggregateKind> for mir::AggregateKind<'tcx> {
             // mir::AggregateKind::Generator(..) => types::AggregateKind::Generator,
             // TODO - skius: 2nd try: not sure why remove. Coroutine exists => Just rename Generator to Coroutine
             mir::AggregateKind::Coroutine(..) => types::AggregateKind::Generator,
+            // TODO - skius(2): Add CoroutineClosure downstream
+            mir::AggregateKind::CoroutineClosure(..) => types::AggregateKind::CoroutineClosure,
         }
     }
 }
@@ -200,8 +206,11 @@ impl<'tcx> ConvertInto<types::TyPrimitive> for ty::TyKind<'tcx> {
                 ty::UintTy::U128 => U128,
             },
             ty::TyKind::Float(float_ty) => match float_ty {
+                // TODO - skius(2): Make sure F16 and F128 are used downstream
+                ty::FloatTy::F16 => F16,
                 ty::FloatTy::F32 => F32,
                 ty::FloatTy::F64 => F64,
+                ty::FloatTy::F128 => F128,
             },
             ty::TyKind::Str => Str,
             ty::TyKind::Never => Never,
