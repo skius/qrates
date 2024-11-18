@@ -150,6 +150,8 @@ impl<'tcx> ConvertInto<types::AggregateKind> for mir::AggregateKind<'tcx> {
             mir::AggregateKind::Closure(..) => types::AggregateKind::Closure,
             // TODO - skius: Remove Generator AggregateKind?
             // mir::AggregateKind::Generator(..) => types::AggregateKind::Generator,
+            // TODO - skius: 2nd try: not sure why remove. Coroutine exists => Just rename Generator to Coroutine
+            mir::AggregateKind::Coroutine(..) => types::AggregateKind::Generator,
         }
     }
 }
