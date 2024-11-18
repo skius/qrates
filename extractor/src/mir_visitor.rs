@@ -365,7 +365,8 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                     no_block,
                 );
             }
-            mir::UnwindAction::Terminate => {
+            // TODO - skius: Consume inner terminate value
+            mir::UnwindAction::Terminate(_) => {
                 this.filler.tables.register_terminators_unwind_action(
                     block,
                     types::UnwindAction::Terminate,
