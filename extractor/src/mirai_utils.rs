@@ -13,7 +13,7 @@ use log_derive::{logfn, logfn_inputs};
 use rustc_hir::def_id::DefId;
 use rustc_hir::definitions::{DefPathData, DisambiguatedDefPathData};
 use rustc_hir::{ItemKind, Node};
-use rustc_middle::ty::subst::{GenericArgKind, SubstsRef};
+use rustc_middle::ty::{GenericArgKind, GenericArgsRef};
 use rustc_middle::ty::{self, Ty, TyCtxt, TyKind};
 use std::rc::Rc;
 
@@ -79,7 +79,7 @@ pub fn is_public(def_id: DefId, tcx: TyCtxt<'_>) -> bool {
 #[logfn(TRACE)]
 pub fn argument_types_key_str<'tcx>(
     tcx: TyCtxt<'tcx>,
-    generic_args: SubstsRef<'tcx>,
+    generic_args: GenericArgsRef<'tcx>,
 ) -> Rc<String> {
     let mut result = "_".to_string();
     for generic_ty_arg in generic_args.types() {
@@ -135,7 +135,7 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
         TyKind::Closure(def_id, subs) => {
             str.push_str("closure_");
             str.push_str(qualified_type_name(tcx, *def_id).as_str());
-            for sub in subs.as_closure().substs {
+            for sub in subs.as_closure().args {
                 if let GenericArgKind::Type(ty) = sub.unpack() {
                     str.push('_');
                     append_mangled_type(str, ty, tcx);
@@ -157,22 +157,30 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
                 }
             }
         }
-        TyKind::Generator(def_id, subs, ..) => {
+        // TODO - skius: Rename to 'Coroutine'?
+        TyKind::Coroutine(def_id, subs, ..) => {
             str.push_str("generator_");
             str.push_str(qualified_type_name(tcx, *def_id).as_str());
-            for sub in subs.as_generator().substs {
+            for sub in subs.as_coroutine().args {
                 if let GenericArgKind::Type(ty) = sub.unpack() {
                     str.push('_');
                     append_mangled_type(str, ty, tcx);
                 }
             }
         }
-        TyKind::GeneratorWitness(binder) => {
-            for ty in binder.skip_binder().iter() {
-                str.push('_');
-                append_mangled_type(str, ty, tcx)
-            }
-        }
+        // TODO - skius: 2nd take: CoroutineWitness seems to be the successor for GeneratorWitnessMIR from prev version, which was
+        // caught in catch-all below. so just skip this?
+        // // TODO - skius: Double check fix here - can we just call `subs.as_coroutine`?
+        // TyKind::CoroutineWitness(def_id, subs) => {
+        //     str.push_str("coroutine_witness_");
+        //     str.push_str(qualified_type_name(tcx, *def_id).as_str());
+        //     for sub in subs.as_coroutine().args {
+        //         if let GenericArgKind::Type(ty) = sub.unpack() {
+        //             str.push('_');
+        //             append_mangled_type(str, ty, tcx);
+        //         }
+        //     }
+        // }
         TyKind::Str => str.push_str("str"),
         TyKind::Array(ty, _) => {
             str.push_str("array_");
@@ -231,12 +239,21 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
             ty::AliasKind::Opaque => {
                 str.push_str("impl_");
                 str.push_str(qualified_type_name(tcx, alias_type.def_id).as_str());
-                for sub in alias_type.substs {
+                for sub in alias_type.args {
                     if let GenericArgKind::Type(ty) = sub.unpack() {
                         str.push('_');
                         append_mangled_type(str, ty, tcx);
                     }
                 }
+            }
+            // TODO - skius: Properly implement handling for Inherent and Weak kinds.
+            ty::AliasKind::Inherent => {
+                str.push_str("inherent_");
+                append_mangled_type(str, alias_type.self_ty(), tcx);
+            }
+            ty::AliasKind::Weak => {
+                str.push_str("weak_");
+                append_mangled_type(str, alias_type.self_ty(), tcx);
             }
         },
         _ => {
