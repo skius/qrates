@@ -17,8 +17,10 @@ use rustc_middle::hir::map::Map as HirMap;
 use rustc_middle::mir::{self, HasLocalDecls};
 use rustc_middle::ty::TyCtxt;
 use rustc_session::Session;
-use rustc_span::source_map::Span;
+use rustc_span::Span;
 use std::mem;
+
+extern crate rustc_ast_ir;
 
 pub(crate) struct HirVisitor<'a, 'tcx> {
     tcx: TyCtxt<'tcx>,
@@ -88,7 +90,7 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         );
         self.current_module = new_module;
         self.visit_id(id);
-        rustc_ast::walk_list!(self, visit_foreign_item_ref, items);
+        rustc_ast_ir::walk_list!(self, visit_foreign_item_ref, items);
         self.current_module = parent_module;
     }
     fn visit_static(
@@ -201,7 +203,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                 );
             }
             hir::ItemKind::Impl(hir::Impl {
-                unsafety,
+                // unsafety,
                 polarity,
                 defaultness,
                 // constness,
@@ -216,7 +218,9 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     self.current_module,
                     name.to_string(),
                     visibility,
-                    unsafety.convert_into(),
+                    // TODO - skius(2): DISCUSS: What to do here?
+                    types::Unsafety::Unknown,
+                    // unsafety.convert_into(),
                     polarity.convert_into(),
                     defaultness.convert_into(),
                     // TODO - skius: DISCUSS: What to do here?
@@ -254,14 +258,15 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                 visibility,
                 types::TyDefKind::TyAlias,
             ),
-            hir::ItemKind::OpaqueTy(..) => self.visit_type(
-                item,
-                def_path,
-                def_id,
-                name,
-                visibility,
-                types::TyDefKind::OpaqueTy,
-            ),
+            // TODO - skius(2): Remove OpaqueTy downstream
+            // hir::ItemKind::OpaqueTy(..) => self.visit_type(
+            //     item,
+            //     def_path,
+            //     def_id,
+            //     name,
+            //     visibility,
+            //     types::TyDefKind::OpaqueTy,
+            // ),
             hir::ItemKind::Enum(..) => self.visit_type(
                 item,
                 def_path,
@@ -348,7 +353,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     def_path,
                     self.current_module,
                     visibility.convert_into(),
-                    method_sig.header.unsafety.convert_into(),
+                    method_sig.header.safety.convert_into(),
                     method_sig.header.abi.name().to_string(),
                     return_type,
                 )
@@ -358,7 +363,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     def_path,
                     self.current_module,
                     visibility.convert_into(),
-                    header.unsafety.convert_into(),
+                    header.safety.convert_into(),
                     header.abi.name().to_string(),
                     return_type,
                 )
@@ -409,7 +414,8 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                 }
                 Some(function)
             }
-            hir::ForeignItemKind::Static(_, mutability) => {
+            // TODO - skius(2): Use _safety downstream?
+            hir::ForeignItemKind::Static(_, mutability, _safety) => {
                 let name: &str = &item.ident.name.as_str();
                 let (item,) = self.filler.tables.register_static_definitions(
                     def_path,
@@ -430,7 +436,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
             intravisit::walk_foreign_item(self, item);
         }
     }
-    fn visit_body(&mut self, body: &'tcx hir::Body) {
+    fn visit_body(&mut self, body: &hir::Body<'tcx>) {
         intravisit::walk_body(self, body);
         let id = body.id();
         let def_id = self.hir_map.body_owner_def_id(id);
@@ -438,7 +444,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
         let def_kind = self.tcx.def_kind(def_id);
         let mir_body = match def_kind {
             DefKind::Const
-            | DefKind::Static(_)
+            | DefKind::Static { .. }
             | DefKind::AssocConst
             | DefKind::Ctor(..)
             | DefKind::AnonConst
