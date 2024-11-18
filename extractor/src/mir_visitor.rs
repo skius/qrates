@@ -402,14 +402,17 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                 }
                 "SwitchInt"
             }
-            mir::TerminatorKind::Resume => "Resume",
+            // TODO - skius: Rename to "UnwindResume"?
+            mir::TerminatorKind::UnwindResume => "Resume",
             mir::TerminatorKind::Return => "Return",
             mir::TerminatorKind::Unreachable => "Unreachable",
-            mir::TerminatorKind::Terminate => "Terminate",
+            // TODO - skius: Rename and consume inner value
+            mir::TerminatorKind::UnwindTerminate(_) => "Terminate",
             mir::TerminatorKind::Drop {
                 place,
                 target,
                 unwind,
+                replace: _, // TODO - skius: Consume `replace`
             } => {
                 let place_type = self.filler.register_type(place.ty(self.body, self.tcx).ty);
                 register_unwind_action(self, unwind);
@@ -427,7 +430,8 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                 destination,
                 target,
                 unwind,
-                from_hir_call: _,
+                // from_hir_call: _,
+                call_source: _, // TODO - skius: Consume `call_source`? from_hir_call was not used.
                 fn_span,
             } => {
                 let interned_func = self.visit_operand(func);
@@ -437,7 +441,8 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                         basic_blocks[target_block],
                     )
                 } else {
-                    (self.tcx.mk_unit(), no_block)
+                    // TODO - skius: double check mk_unit() fix correct?
+                    (self.tcx.consts.unit.ty(), no_block)
                 };
                 let interned_return_ty = self.filler.register_type(return_ty);
                 let func_ty = func.ty(self.body, self.tcx);
@@ -480,7 +485,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
 
                 match func {
                     mir::Operand::Constant(constant) => {
-                        match constant.literal.ty().kind() {
+                        match constant.const_.ty().kind() {
                             ty::TyKind::FnDef(target_id, substs) => {
                                 let generics = self.tcx.generics_of(*target_id);
                                 if generics.has_self {
@@ -552,7 +557,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                 );
                 "Yield"
             }
-            mir::TerminatorKind::GeneratorDrop => "GeneratorDrop",
+            mir::TerminatorKind::CoroutineDrop => "GeneratorDrop", // TODO - skius: Rename to "CoroutineDrop"?
             mir::TerminatorKind::FalseEdge {
                 real_target,
                 imaginary_target,
