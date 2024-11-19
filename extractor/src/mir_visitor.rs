@@ -95,8 +95,10 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             let mir_scope_safety = self.get_scope_safety(scope);
             let group;
             let check_mode;
-            if let Some(mir::Safety::ExplicitUnsafe(hir_id)) = &mir_scope_safety {
-                match self.tcx.hir().get(*hir_id) {
+            // TODO - skius(2): Is rustc_middle::thir::BlockSafety the right type? was mir::Safety
+            if let Some(rustc_middle::thir::BlockSafety::ExplicitUnsafe(hir_id)) = &mir_scope_safety {
+                // TODO - skius(2): Is hir_node the appropriate successor of .hir().get()?
+                match self.tcx.hir_node(*hir_id) {
                     hir::Node::Block(block) => {
                         check_mode = block.rules.convert_into();
                     }
@@ -123,9 +125,11 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             self.scopes.insert(scope, scope_id);
         }
     }
-    fn get_scope_safety(&self, scope: mir::SourceScope) -> Option<mir::Safety> {
+    // TODO - skius(2): Is rustc_middle::thir::BlockSafety the right type? was mir::Safety
+    fn get_scope_safety(&self, scope: mir::SourceScope) -> Option<rustc_middle::thir::BlockSafety> {
         match self.body.source_scopes[scope].local_data {
-            mir::ClearCrossCrate::Set(ref data) => Some(data.safety),
+            // TODO - skius(2): Where to get safety from?
+            mir::ClearCrossCrate::Set(ref data) => None /*Some(data.safety)*/,
             mir::ClearCrossCrate::Clear => None,
         }
     }
@@ -172,7 +176,8 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                         );
                         (stmt, "Assign/Ref")
                     }
-                    mir::Rvalue::AddressOf(mutability, place) => {
+                    // TODO - skius(2): Rename AddressOf to RawPtr downstream
+                    mir::Rvalue::RawPtr(mutability, place) => {
                         let place_ty = self.filler.register_type(place.ty(self.body, self.tcx).ty);
                         let (stmt,) = self.filler.tables.register_statements_assign_address(
                             interned_target_type,
@@ -211,20 +216,21 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                         );
                         (stmt, "Assign/BinaryOp")
                     }
-                    mir::Rvalue::CheckedBinaryOp(op, box (first, second)) => {
-                        let first_interned_operand = self.visit_operand(first);
-                        let second_interned_operand = self.visit_operand(second);
-                        let (stmt,) = self
-                            .filler
-                            .tables
-                            .register_statements_assign_checked_binary_op(
-                                interned_target_type,
-                                format!("{:?}", op),
-                                first_interned_operand,
-                                second_interned_operand,
-                            );
-                        (stmt, "Assign/CheckedBinaryOp")
-                    }
+                    // TODO - skius(2): Handle Checked* variants downstream, needs "XXXWithOverflow" check of BinOp variant.
+                    // mir::Rvalue::CheckedBinaryOp(op, box (first, second)) => {
+                    //     let first_interned_operand = self.visit_operand(first);
+                    //     let second_interned_operand = self.visit_operand(second);
+                    //     let (stmt,) = self
+                    //         .filler
+                    //         .tables
+                    //         .register_statements_assign_checked_binary_op(
+                    //             interned_target_type,
+                    //             format!("{:?}", op),
+                    //             first_interned_operand,
+                    //             second_interned_operand,
+                    //         );
+                    //     (stmt, "Assign/CheckedBinaryOp")
+                    // }
                     mir::Rvalue::NullaryOp(op, typ) => {
                         let interned_type = self.filler.register_type(*typ);
                         let (stmt,) = self.filler.tables.register_statements_assign_nullary_op(
@@ -442,12 +448,13 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                     )
                 } else {
                     // TODO - skius: double check mk_unit() fix correct?
-                    (self.tcx.consts.unit.ty(), no_block)
+                    (self.tcx.types.unit, no_block)
                 };
                 let interned_return_ty = self.filler.register_type(return_ty);
                 let func_ty = func.ty(self.body, self.tcx);
                 let sig = func_ty.fn_sig(self.tcx);
-                let unsafety = sig.unsafety().convert_into();
+                // TODO - skius(2): rename unsafety to safety
+                let unsafety = sig.safety().convert_into();
                 let abi = sig.abi().name().to_string();
                 let span = self.filler.register_span(*fn_span);
                 register_unwind_action(self, unwind);
@@ -461,7 +468,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                     span,
                 );
                 for (i, arg) in args.iter().enumerate() {
-                    let interned_arg = self.visit_operand(arg);
+                    let interned_arg = self.visit_operand(&arg.node);
                     self.filler.tables.register_terminators_call_arg(
                         function_call,
                         i.into(),
@@ -513,7 +520,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                                         desc.type_generics,
                                     );
                             }
-                            ty::TyKind::FnPtr(_) => {
+                            ty::TyKind::FnPtr(..) => {
                                 // Calling a function pointer.
                             }
                             _ => unreachable!("Unexpected called constant type: {:?}", constant),
@@ -524,6 +531,10 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                     }
                 };
                 "Call"
+            }
+            mir::TerminatorKind::TailCall { func, args, fn_span } => {
+                // TODO - skius(2): Handle TailCall downstream.
+                "TailCall"
             }
             mir::TerminatorKind::Assert {
                 cond,
@@ -584,8 +595,9 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                 operands: _,
                 options: _,
                 line_spans: _,
-                destination: _,
                 unwind: _,
+                asm_macro: _,
+                targets: _,
             } => {
                 self.filler.tables.register_terminators_inline_asm(block);
                 "InlineAsm"
