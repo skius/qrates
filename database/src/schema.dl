@@ -174,8 +174,10 @@ enum TyPrimitive {
     U32,
     U64,
     U128,
+    F16,
     F32,
     F64,
+    F128,
     Str,
     Never,
 }
@@ -222,6 +224,8 @@ enum AggregateKind {
     Adt,
     Closure,
     Generator,
+    CoroutineClosure,
+    RawPtr,
 }
 
 /// The kind of a cast operation.
@@ -256,6 +260,7 @@ enum BorrowKind {
     Unknown,
     Shared,
     Shallow,
+    Deep,
     Unique,
     Mut,
     MutTwoPhase,

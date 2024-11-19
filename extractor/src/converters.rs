@@ -161,6 +161,8 @@ impl<'tcx> ConvertInto<types::AggregateKind> for mir::AggregateKind<'tcx> {
             mir::AggregateKind::Coroutine(..) => types::AggregateKind::Generator,
             // TODO - skius(2): Add CoroutineClosure downstream
             mir::AggregateKind::CoroutineClosure(..) => types::AggregateKind::CoroutineClosure,
+            // TODO - skius(2): Add RawPtr downstream
+            mir::AggregateKind::RawPtr(..) => types::AggregateKind::RawPtr,
         }
     }
 }
