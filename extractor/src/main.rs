@@ -15,7 +15,7 @@ use rustc_interface::{
     Queries,
 };
 use std::process;
-use rustc_session::EarlyErrorHandler;
+use rustc_session::EarlyDiagCtxt;
 
 struct CorpusCallbacks {}
 
@@ -31,14 +31,14 @@ impl rustc_driver::Callbacks for CorpusCallbacks {
         queries: &'tcx Queries<'tcx>,
     ) -> Compilation {
         // TODO - skius: Check that moving from String-based to Symbol-based (and from config-stage to analysis-stage is fine)
-        save_cfg_configuration(&compiler.session().parse_sess.config);
+        save_cfg_configuration(&compiler.sess.psess.config);
         analyse(compiler, queries);
         Compilation::Continue
     }
 }
 
 fn main() {
-    let handler = EarlyErrorHandler::new(Default::default());
+    let handler = EarlyDiagCtxt::new(Default::default());
     rustc_driver::init_rustc_env_logger(&handler);
     let mut callbacks = CorpusCallbacks {};
     let exit_code = rustc_driver::catch_with_exit_code(|| {
