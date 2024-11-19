@@ -194,7 +194,7 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                         .register_types_slice(interned_type, element_interned_type);
                     interned_type
                 }
-                ty::TyKind::RawPtr(ty::TypeAndMut { ty, mutbl }) => {
+                ty::TyKind::RawPtr(ty, mutbl) => {
                     let interned_type = self.insert_new_type_into_table("RawPtr", typ);
                     let target_type = self.register_type(*ty);
                     self.tables.register_types_raw_ptr(
@@ -221,7 +221,7 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                         .register_types_fn_def(interned_type, fn_def_path);
                     interned_type
                 }
-                ty::TyKind::FnPtr(_fn_sig) => {
+                ty::TyKind::FnPtr(_fn_sig, _header) => {
                     let interned_type = self.insert_new_type_into_table("FnPtr", typ);
                     self.tables.register_types_fn_ptr(interned_type);
                     interned_type
@@ -262,7 +262,7 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                     interned_type
                 }
                 // TODO - skius: Rename to 'Coroutine'?
-                ty::TyKind::Coroutine(def_id, _substs, _movability) => {
+                ty::TyKind::Coroutine(def_id, _substs) => {
                     let interned_type = self.insert_new_type_into_table("Generator", typ);
                     let generator_def_path = self.resolve_def_id(*def_id);
                     self.tables
@@ -281,6 +281,19 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                     self.tables.register_types_generator_witness(interned_type);
                     interned_type
                 }
+                // TODO - skius(2): Add downstream support for CoroutineClosure
+                ty::TyKind::CoroutineClosure(def_id, _args ) => {
+                    let interned_type = self.insert_new_type_into_table("CoroutineClosure", typ);
+                    let coroutine_closure_def_path = self.resolve_def_id(*def_id);
+                    // self.tables
+                    //     .register_types_coroutine_closure(interned_type, coroutine_closure_def_path);
+                    interned_type
+                }
+                // TODO - skius(2): Add downstream support for Pat
+                ty::TyKind::Pat(..) => {
+                    let interned_type = self.insert_new_type_into_table("Pat", typ);
+                    interned_type
+                }
                 ty::TyKind::Tuple(_substs) => {
                     let interned_type = self.insert_new_type_into_table("Tuple", typ);
                     self.tables.register_types_tuple(interned_type);
@@ -295,7 +308,7 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                     interned_type
                 }
                 ty::TyKind::Alias(alias_kind, alias_type) => match alias_kind {
-                    ty::AliasKind::Projection => {
+                    ty::AliasTyKind::Projection => {
                         let interned_type = self.insert_new_type_into_table("Projection", typ);
                         let trait_def_id = alias_type.trait_def_id(self.tcx);
                         let trait_def_path = self.resolve_def_id(trait_def_id);
@@ -307,18 +320,18 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                         );
                         interned_type
                     }
-                    ty::AliasKind::Opaque => {
+                    ty::AliasTyKind::Opaque => {
                         let interned_type = self.insert_new_type_into_table("Opaque", typ);
                         let def_path = self.resolve_def_id(alias_type.def_id);
                         self.tables.register_types_opaque(interned_type, def_path);
                         interned_type
                     }
                     // TODO - skius: Properly handle Inherent and Weak. Needs 'register_types_' functions!
-                    ty::AliasKind::Inherent => {
+                    ty::AliasTyKind::Inherent => {
                         let interned_type = self.insert_new_type_into_table("Inherent", typ);
                         interned_type
                     }
-                    ty::AliasKind::Weak => {
+                    ty::AliasTyKind::Weak => {
                         let interned_type = self.insert_new_type_into_table("Weak", typ);
                         interned_type
                     }
