@@ -174,7 +174,7 @@ fn analyse_with_tcx(name: String, tcx: TyCtxt, session: &Session) {
 }
 
 pub fn analyse<'tcx>(compiler: &Compiler, queries: &'tcx Queries<'tcx>) {
-    let session = compiler.session();
+    let session = &compiler.sess;
     queries.global_ctxt().unwrap().enter(|tcx| {
         let name = tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).to_string();
         assert!(
@@ -189,30 +189,31 @@ pub fn override_queries(
     _session: &Session,
     providers: &mut rustc_middle::util::Providers,
 ) {
-    providers.unsafety_check_result = unsafety_check_result;
-    // providers.unsafety_check_result_for_const_arg = unsafety_check_result_for_const_arg;
+// TODO - skius(2): Check if entire unsafety_check_result override can really be disabled. Seems like it was disabled.
+//     providers.queries.check_unsafety = unsafety_check_result;
+//     // providers.unsafety_check_result_for_const_arg = unsafety_check_result_for_const_arg;
 }
 
-fn unsafety_check_result<'tcx>(
-    tcx: TyCtxt<'tcx>,
-    local_def_id: LocalDefId,
-) -> &'tcx rustc_middle::mir::UnsafetyCheckResult {
-    let mut providers = Providers::default();
-    rustc_mir_transform::provide(&mut providers);
-    let original_unsafety_check_result = providers.unsafety_check_result;
-    // if let None = ty::WithOptConstParam::try_lookup(local_def_id, tcx) {
-    // FIXME: check_unsafety changed too much and needs to be written from scratch.
-    // let (result, reasons) = check_unsafety::unsafety_check_result(
-    //     tcx,
-    //     ty::WithOptConstParam::unknown(local_def_id),
-    // );
-    // let def_id = local_def_id.to_def_id();
-    // let mut state = SHARED_STATE.lock().unwrap();
-    // state.function_unsafe_use.insert(def_id, result);
-    // state.function_unsafe_reasons.insert(def_id, reasons);
-    // }
-    original_unsafety_check_result(tcx, local_def_id)
-}
+// fn unsafety_check_result<'tcx>(
+//     tcx: TyCtxt<'tcx>,
+//     local_def_id: LocalDefId,
+// ) -> &'tcx rustc_middle::mir::UnsafetyCheckResult {
+//     let mut providers = Providers::default();
+//     rustc_mir_transform::provide(&mut providers);
+//     let original_unsafety_check_result = providers.unsafety_check_result;
+//     // if let None = ty::WithOptConstParam::try_lookup(local_def_id, tcx) {
+//     // FIXME: check_unsafety changed too much and needs to be written from scratch.
+//     // let (result, reasons) = check_unsafety::unsafety_check_result(
+//     //     tcx,
+//     //     ty::WithOptConstParam::unknown(local_def_id),
+//     // );
+//     // let def_id = local_def_id.to_def_id();
+//     // let mut state = SHARED_STATE.lock().unwrap();
+//     // state.function_unsafe_use.insert(def_id, result);
+//     // state.function_unsafe_reasons.insert(def_id, reasons);
+//     // }
+//     original_unsafety_check_result(tcx, local_def_id)
+// }
 
 // fn unsafety_check_result_for_const_arg<'tcx>(
 //     tcx: TyCtxt<'tcx>,
