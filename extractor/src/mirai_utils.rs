@@ -119,8 +119,11 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
         }
         TyKind::Float(float_ty) => {
             str.push_str(match float_ty {
+                // TODO - skius(2): Add F16/F128 downstream
+                ty::FloatTy::F16 => "f16",
                 ty::FloatTy::F32 => "f32",
                 ty::FloatTy::F64 => "f64",
+                ty::FloatTy::F128 => "f128",
             });
         }
         TyKind::Adt(def, subs) => {
@@ -190,13 +193,13 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
             str.push_str("slice_");
             append_mangled_type(str, *ty, tcx);
         }
-        TyKind::RawPtr(ty_and_mut) => {
+        TyKind::RawPtr(ty, mutbl) => {
             str.push_str("pointer_");
-            match ty_and_mut.mutbl {
+            match mutbl {
                 rustc_hir::Mutability::Mut => str.push_str("mut_"),
                 rustc_hir::Mutability::Not => str.push_str("const_"),
             }
-            append_mangled_type(str, ty_and_mut.ty, tcx);
+            append_mangled_type(str, *ty, tcx);
         }
         TyKind::Ref(_, ty, mutability) => {
             str.push_str("ref_");
@@ -205,7 +208,8 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
             }
             append_mangled_type(str, *ty, tcx);
         }
-        TyKind::FnPtr(poly_fn_sig) => {
+        // TODO - skius(2): Use new field "header"?
+        TyKind::FnPtr(poly_fn_sig, header) => {
             let fn_sig = poly_fn_sig.skip_binder();
             str.push_str("fn_ptr_");
             for arg_type in fn_sig.inputs() {
@@ -231,12 +235,12 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
             }
         }
         ty::TyKind::Alias(alias_kind, alias_type) => match alias_kind {
-            ty::AliasKind::Projection => {
+            ty::AliasTyKind::Projection => {
                 append_mangled_type(str, alias_type.self_ty(), tcx);
                 str.push_str("_as_");
                 str.push_str(qualified_type_name(tcx, alias_type.def_id).as_str());
             }
-            ty::AliasKind::Opaque => {
+            ty::AliasTyKind::Opaque => {
                 str.push_str("impl_");
                 str.push_str(qualified_type_name(tcx, alias_type.def_id).as_str());
                 for sub in alias_type.args {
@@ -247,11 +251,11 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
                 }
             }
             // TODO - skius: Properly implement handling for Inherent and Weak kinds.
-            ty::AliasKind::Inherent => {
+            ty::AliasTyKind::Inherent => {
                 str.push_str("inherent_");
                 append_mangled_type(str, alias_type.self_ty(), tcx);
             }
-            ty::AliasKind::Weak => {
+            ty::AliasTyKind::Weak => {
                 str.push_str("weak_");
                 append_mangled_type(str, alias_type.self_ty(), tcx);
             }
