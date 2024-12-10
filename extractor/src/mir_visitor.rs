@@ -6,7 +6,7 @@ use crate::converters::ConvertInto;
 use crate::table_filler::TableFiller;
 use crate::utils::*;
 use corpus_database::types;
-use rustc_hir as hir;
+use rustc_hir::{self as hir, HirId};
 use rustc_middle::mir;
 use rustc_middle::ty::{self, TyCtxt};
 use std::collections::HashMap;
@@ -18,6 +18,7 @@ pub(crate) struct MirVisitor<'a, 'b, 'tcx> {
     filler: &'a mut TableFiller<'b, 'tcx>,
     root_scope: types::Scope,
     scopes: HashMap<mir::SourceScope, types::Scope>,
+    safety_map: HashMap<HirId, rustc_middle::thir::BlockSafety>,
 }
 
 impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
@@ -27,9 +28,11 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
         body_id: rustc_span::def_id::LocalDefId,
         body: &'a mir::Body<'tcx>,
         filler: &'a mut TableFiller<'b, 'tcx>,
+        safety_map: HashMap<HirId, rustc_middle::thir::BlockSafety>,
     ) -> Self {
         let body_path = filler.resolve_local_def_id(body_id);
         let (root_scope,) = filler.tables.register_mir_cfgs(item, body_path);
+        // eprintln!("{:?}", safety_map);
         Self {
             tcx,
             body_path,
@@ -37,12 +40,13 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             root_scope,
             filler,
             scopes: HashMap::new(),
+            safety_map,
         }
     }
     /// Visit MIR and extract all information about it.
     pub fn visit(&mut self) {
         self.visit_scopes();
-        let mut basic_blocks = HashMap::new();
+        let mut basic_blocks: HashMap<mir::BasicBlock, _> = HashMap::new();
         for (basic_block_index, basic_block_data) in self.body.basic_blocks.iter_enumerated() {
             let basic_block_kind = if basic_block_index == mir::START_BLOCK {
                 assert!(!basic_block_data.is_cleanup);
@@ -91,8 +95,15 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             } else {
                 self.root_scope
             };
+            // let hir_id: Option<rustc_hir::HirId> = scope.lint_root(&self.body.source_scopes);
             let span = self.filler.register_span(scope_data.span);
             let mir_scope_safety = self.get_scope_safety(scope);
+            // if let Some(hir_id) = hir_id {
+            //     eprintln!("HirId: {:?} found", hir_id);
+            //     if let Some(safety) = self.safety_map.get(&hir_id) {
+            //         eprintln!("Safety found: {:?}", safety);
+            //     }
+            // }
             let group;
             let check_mode;
             // TODO - skius(2): Is rustc_middle::thir::BlockSafety the right type? was mir::Safety

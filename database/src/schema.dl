@@ -27,6 +27,8 @@ inc_id BasicBlock: u64 {
 }
 /// A statement.
 inc_id Statement: u64 {}
+/// A THIR-level block
+inc_id ThirBlock: u64 {}
 /// The hash of the crate as reported by the compiler.
 custom_id CrateHash: u128 {
     impl From<u128> for CrateHash {
@@ -409,6 +411,8 @@ relation function_parameter_types(function: Item, index: FnParamIndex, typ: Type
 /// Only functions marked as `unsafe` can do that.
 relation function_unsafe_use(def_path: DefPath, uses_unsafe: bool);
 relation function_unsafe_reasons(def_path: DefPath, index: u32, reason: InternedString);
+/// THIR-level block information
+relation thir_blocks(block: auto ThirBlock, def_path: DefPath, safety: ScopeSafety);
 /// An item that is either a constant or a static.
 relation static_definitions(def_path: DefPath, item: auto Item, module: Module, name: Name, visibility: TyVisibility, mutability: Mutability);
 /// An impl item.
