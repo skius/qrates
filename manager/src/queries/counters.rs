@@ -251,4 +251,10 @@ pub fn query(loader: &Loader, report_path: &Path) {
         },
     );
     write_csv!(report_path, selected_function_definitions);
+
+    // save thir_blocks
+    let thir_blocks = loader.load_thir_blocks();
+    info!("thir_blocks.len = {}", thir_blocks.len());
+    let thir_blocks = thir_blocks.iter().collect::<Vec<_>>();
+    write_csv!(report_path, thir_blocks);
 }

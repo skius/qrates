@@ -13,6 +13,7 @@ extern crate rustc_hir;
 extern crate rustc_interface;
 extern crate rustc_metadata;
 extern crate rustc_middle;
+extern crate rustc_mir_build;
 extern crate rustc_mir_transform;
 extern crate rustc_session;
 extern crate rustc_span;
@@ -24,6 +25,7 @@ mod mir_visitor;
 mod mirai_utils;
 mod table_filler;
 mod utils;
+mod thir_storage;
 
 use lazy_static::lazy_static;
 use rustc_data_structures::fx::FxIndexSet;
@@ -192,6 +194,20 @@ pub fn override_queries(
 // TODO - skius(2): Check if entire unsafety_check_result override can really be disabled. Seems like it was disabled.
 //     providers.queries.check_unsafety = unsafety_check_result;
 //     // providers.unsafety_check_result_for_const_arg = unsafety_check_result_for_const_arg;
+    
+    providers.queries.thir_body = |tcx, def_id| {
+        let mut providers = rustc_middle::util::Providers::default();
+        rustc_mir_build::provide(&mut providers);
+        let original_thir_body = providers.thir_body;
+        let body = original_thir_body(tcx, def_id);
+        let Ok((steal, expr_id)) = body else {
+            return body;
+        };
+        let thir_clone = steal.borrow().clone();
+        unsafe { thir_storage::store_thir_body(tcx, def_id, thir_clone) };
+
+        Ok((steal, expr_id)) 
+    };
 }
 
 // fn unsafety_check_result<'tcx>(

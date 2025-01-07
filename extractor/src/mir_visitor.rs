@@ -9,6 +9,7 @@ use corpus_database::types;
 use rustc_hir::{self as hir, HirId};
 use rustc_middle::mir;
 use rustc_middle::ty::{self, TyCtxt};
+use rustc_span::Span;
 use std::collections::HashMap;
 
 pub(crate) struct MirVisitor<'a, 'b, 'tcx> {
@@ -18,7 +19,7 @@ pub(crate) struct MirVisitor<'a, 'b, 'tcx> {
     filler: &'a mut TableFiller<'b, 'tcx>,
     root_scope: types::Scope,
     scopes: HashMap<mir::SourceScope, types::Scope>,
-    safety_map: HashMap<HirId, rustc_middle::thir::BlockSafety>,
+    safety_map: HashMap<Span, rustc_middle::thir::BlockSafety>,
 }
 
 impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
@@ -28,7 +29,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
         body_id: rustc_span::def_id::LocalDefId,
         body: &'a mir::Body<'tcx>,
         filler: &'a mut TableFiller<'b, 'tcx>,
-        safety_map: HashMap<HirId, rustc_middle::thir::BlockSafety>,
+        safety_map: HashMap<Span, rustc_middle::thir::BlockSafety>,
     ) -> Self {
         let body_path = filler.resolve_local_def_id(body_id);
         let (root_scope,) = filler.tables.register_mir_cfgs(item, body_path);
@@ -89,6 +90,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
     fn visit_scopes(&mut self) {
         let mut unsafe_groups = HashMap::new();
         let mut unsafe_groups_counter = 0;
+        // eprintln!("Safety map: {:?}", self.safety_map);
         for (scope, scope_data) in self.body.source_scopes.iter_enumerated() {
             let parent_scope = if let Some(ref parent) = scope_data.parent_scope {
                 self.scopes[parent]
@@ -97,13 +99,23 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             };
             // let hir_id: Option<rustc_hir::HirId> = scope.lint_root(&self.body.source_scopes);
             let span = self.filler.register_span(scope_data.span);
-            let mir_scope_safety = self.get_scope_safety(scope);
+            let mut mir_scope_safety = self.get_scope_safety(scope);
             // if let Some(hir_id) = hir_id {
             //     eprintln!("HirId: {:?} found", hir_id);
             //     if let Some(safety) = self.safety_map.get(&hir_id) {
             //         eprintln!("Safety found: {:?}", safety);
             //     }
             // }
+            
+            // Try and find the span of the THIR block
+            let search_span = scope_data.span;
+            if let Some(safety_mode) = self.safety_map.get(&search_span) {
+                // eprintln!("Safety mode found: {:?}", safety_mode);
+                mir_scope_safety = Some(safety_mode.clone());
+            } else {
+                // eprintln!("Safety mode not found for span: {:?}", search_span);
+            }
+
             let group;
             let check_mode;
             // TODO - skius(2): Is rustc_middle::thir::BlockSafety the right type? was mir::Safety

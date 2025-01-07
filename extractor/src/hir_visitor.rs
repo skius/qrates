@@ -5,6 +5,7 @@
 use crate::converters::ConvertInto;
 use crate::mir_visitor::MirVisitor;
 use crate::table_filler::TableFiller;
+use crate::thir_storage;
 use corpus_database::{tables::Tables, types};
 use hir::def_id::LocalDefId;
 use rustc_hir::def::DefKind;
@@ -118,10 +119,16 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         self.current_item = old_item;
     }
     /// Extract information from unoptmized MIR.
-    fn visit_mir(&mut self, body_id: rustc_span::def_id::LocalDefId, body: &mir::Body<'tcx>, safety_map: HashMap<HirId, rustc_middle::thir::BlockSafety>) {
+    fn visit_mir(
+        &mut self,
+        body_id: rustc_span::def_id::LocalDefId,
+        body: &mir::Body<'tcx>,
+        safety_map: HashMap<Span, rustc_middle::thir::BlockSafety>,
+    ) {
         let error = format!("Mir outside of an item: {:?}", body.span);
         let item = self.current_item.expect(&error);
-        let mut mir_visitor = MirVisitor::new(self.tcx, item, body_id, body, &mut self.filler, safety_map);
+        let mut mir_visitor =
+            MirVisitor::new(self.tcx, item, body_id, body, &mut self.filler, safety_map);
         mir_visitor.visit();
     }
     /// Extract information from THIR.
@@ -482,30 +489,49 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
             | DefKind::InlineConst => self.tcx.mir_for_ctfe(def_id.to_def_id()),
             _ => self.tcx.optimized_mir(def_id),
         };
-        // let thir_body: &rustc_middle::thir::Thir<'tcx> = &self.tcx.thir_body(def_id).expect("thir body").0.borrow();
+        // self.tcx.ensure_with_value().mir_built(def_id);
+        // self.tcx.ensure_with_value().thir_body(def_id);
+
+        // run the query if for some reason it has not been run yet
+        let _ = self.tcx.thir_body(def_id);
+        let thir_body = unsafe { thir_storage::retrieve_thir_body(self.tcx, def_id) };
+        // let res = self.tcx.thir_body(def_id).expect("thir body").0;
+        // // self.tcx.ensure_with_value().mir_built(def_id);
+        // // self.tcx.ensure_with_value().thir_body(def_id);
+
+        // let thir_body: &rustc_middle::thir::Thir<'tcx> = &res.borrow();
+
         // // Because MIR does not have safety associated to its scopes anymore, we need to extract it from THIR.
         // // Safety is stored in blocks in THIR.
 
-        // let def_path = self.filler.resolve_local_def_id(def_id);
+        let def_path = self.filler.resolve_local_def_id(def_id);
 
         let mut block_hir_id_to_safety_map = HashMap::new();
+        let mut span_to_safety_map: HashMap<Span, rustc_middle::thir::BlockSafety> = HashMap::new();
+        if let Some(thir_body) = thir_body {
+            // // Collect safety information from THIR blocks
+            for (block_id, block) in thir_body.blocks.iter_enumerated() {
+                let block: &rustc_middle::thir::Block = block;
+                let block_id: rustc_middle::thir::BlockId = block_id;
+                let safety_mode = block.safety_mode;
+                let item_local_id = block.region_scope.id;
+                // The owner id is the LocalDefId of the directly enclosing item-like.
+                let owner_id = rustc_hir::OwnerId { def_id: def_id };
+                let block_hir_id = HirId {
+                    owner: owner_id,
+                    local_id: item_local_id,
+                };
+                block_hir_id_to_safety_map.insert(block_hir_id, safety_mode);
+                span_to_safety_map.insert(block.span, safety_mode);
 
-        // // Collect safety information from THIR blocks
-        // for (block_id, block) in thir_body.blocks.iter_enumerated() {
-        //     let block: &rustc_middle::thir::Block = block;
-        //     let block_id: rustc_middle::thir::BlockId = block_id;
-        //     let safety_mode = block.safety_mode;
-        //     let item_local_id = block.region_scope.id;
-        //     // The owner id is the LocalDefId of the directly enclosing item-like.
-        //     let owner_id = rustc_hir::OwnerId { def_id: def_id };
-        //     let block_hir_id = HirId { owner: owner_id, local_id: item_local_id };
-        //     block_hir_id_to_safety_map.insert(block_hir_id, safety_mode);
+                self.filler.tables.register_thir_blocks(def_path, Some(safety_mode).convert_into());
+            }
+        } else {
+            eprintln!("No THIR body found for {:?}", def_id);
+        }
 
 
-        //     self.filler.tables.register_thir_blocks(def_path, Some(safety_mode).convert_into());
-
-        // }
-        self.visit_mir(def_id, mir_body, block_hir_id_to_safety_map);
+        self.visit_mir(def_id, mir_body, span_to_safety_map);
     }
     fn nested_visit_map<'this>(&'this mut self) -> Self::Map {
         self.tcx.hir()
