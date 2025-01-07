@@ -1,6 +1,7 @@
 //! Compute unsafe blocks and unsafe statements.
 
 use super::utils::{DefPathResolver, GroupByIterator, SpanResolver};
+use crate::queries::utils::BuildResolver;
 use crate::write_csv;
 use corpus_database::{tables::Loader, types};
 use corpus_queries_derive::datapond_query;
@@ -257,4 +258,9 @@ pub fn query(loader: &Loader, report_path: &Path) {
     info!("thir_blocks.len = {}", thir_blocks.len());
     let thir_blocks = thir_blocks.iter().collect::<Vec<_>>();
     write_csv!(report_path, thir_blocks);
+
+    let selected_thir_blocks = super::utils::filter_selected(loader.load_thir_blocks().iter(), &loader.load_selected_builds(), &loader.load_def_paths(), |&(_block, path, _safety)| path, |build, &(block, path, safety)| (build, block, path, safety));
+    let build_resolver = BuildResolver::new(loader);
+    let selected_thir_blocks = selected_thir_blocks.iter().map(|&(build, block, path, safety)| (build, build_resolver.resolve(build), block, def_path_resolver.resolve(path), safety));
+    write_csv!(report_path, selected_thir_blocks);
 }

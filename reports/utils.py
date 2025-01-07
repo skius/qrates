@@ -52,6 +52,19 @@ def load_selected_builds():
         ],
     )
 
+def load_thir_blocks():
+    # Added
+    return load(
+        'q-counters/selected_thir_blocks.csv',
+        [
+            "build",
+            "package_name", "package_version", "crate_name", "build_crate_hash", "edition",
+            "block", 
+            "crate", "crate_hash", "def_path", "def_path_hash", "summary_key",
+            "safety"
+        ],
+    )
+
 # Builds
 
 def load_original_crates_list():
