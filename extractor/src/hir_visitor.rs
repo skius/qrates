@@ -218,10 +218,10 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                 );
             }
             hir::ItemKind::Impl(hir::Impl {
-                // unsafety,
+                safety,
                 polarity,
                 defaultness,
-                // constness,
+                constness,
                 of_trait,
                 ..
             }) => {
@@ -233,14 +233,12 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     self.current_module,
                     name.to_string(),
                     visibility,
-                    // TODO - skius(2): DISCUSS: What to do here?
-                    types::Unsafety::Unknown,
-                    // unsafety.convert_into(),
+                    // TODO - skius(2): DISCUSS: What to do here? skius(2025.1): added from safety
+                    safety.convert_into(),
                     polarity.convert_into(),
                     defaultness.convert_into(),
-                    // TODO - skius: DISCUSS: What to do here?
-                    // constness.convert_into(),
-                    types::Constness::Unknown,
+                    // TODO - skius: DISCUSS: What to do here? skius(2025.1): added from re-added constness
+                    constness.convert_into(),
                     interned_type,
                 );
                 if let Some(trait_ref) = of_trait {
