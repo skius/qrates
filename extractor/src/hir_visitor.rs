@@ -6,6 +6,7 @@ use crate::converters::ConvertInto;
 use crate::mir_visitor::MirVisitor;
 use crate::table_filler::TableFiller;
 use crate::thir_storage;
+use crate::thir_visitor::ThirVisitor;
 use corpus_database::{tables::Tables, types};
 use hir::def_id::LocalDefId;
 use rustc_hir::def::DefKind;
@@ -16,6 +17,7 @@ use rustc_hir::{
 };
 use rustc_middle::hir::map::Map as HirMap;
 use rustc_middle::mir::{self, HasLocalDecls};
+use rustc_middle::thir::{BlockSafety, ExprId, Thir};
 use rustc_middle::ty::TyCtxt;
 use rustc_session::Session;
 use rustc_span::Span;
@@ -132,12 +134,12 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         mir_visitor.visit();
     }
     /// Extract information from THIR.
-    // fn visit_thir(&mut self, body_id: rustc_span::def_id::LocalDefId, body: &rustc_middle::thir::Thir<'tcx>) {
-    //     let error = format!("THIR outside of an item: {:?}", body_id);
-    //     let item = self.current_item.expect(&error);
-    //     let mut thir_visitor = ThirVisitor::new(self.tcx, item, body_id, body, &mut self.filler);
-    //     thir_visitor.visit();
-    // }
+    fn visit_thir(&mut self, thir: Thir<'tcx>, body_id: ExprId) {
+        let error = format!("THIR outside of an item: {:?}", body_id);
+        let item = self.current_item.expect(&error);
+        let mut thir_visitor = ThirVisitor::new(self.tcx, item, &thir, body_id, &mut self.filler);
+        thir_visitor.visit();
+    }
     fn visit_type(
         &mut self,
         item: &'tcx hir::Item,
@@ -504,26 +506,38 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
 
         let def_path = self.filler.resolve_local_def_id(def_id);
 
-        let mut block_hir_id_to_safety_map = HashMap::new();
+        // let mut block_hir_id_to_safety_map = HashMap::new();
         let mut span_to_safety_map: HashMap<Span, rustc_middle::thir::BlockSafety> = HashMap::new();
-        if let Some(thir_body) = thir_body {
+        if let Some((thir_body, expr_id)) = thir_body {
             // // Collect safety information from THIR blocks
-            for (block_id, block) in thir_body.blocks.iter_enumerated() {
-                let block: &rustc_middle::thir::Block = block;
-                let block_id: rustc_middle::thir::BlockId = block_id;
-                let safety_mode = block.safety_mode;
-                let item_local_id = block.region_scope.id;
-                // The owner id is the LocalDefId of the directly enclosing item-like.
-                let owner_id = rustc_hir::OwnerId { def_id: def_id };
-                let block_hir_id = HirId {
-                    owner: owner_id,
-                    local_id: item_local_id,
-                };
-                block_hir_id_to_safety_map.insert(block_hir_id, safety_mode);
-                span_to_safety_map.insert(block.span, safety_mode);
+            // for (block_id, block) in thir_body.blocks.iter_enumerated() {
+            //     let block: &rustc_middle::thir::Block = block;
+            //     let block_id: rustc_middle::thir::BlockId = block_id;
+            //     let safety_mode = block.safety_mode;
+            //     let item_local_id = block.region_scope.id;
+            //     // The owner id is the LocalDefId of the directly enclosing item-like.
+            //     let owner_id = rustc_hir::OwnerId { def_id: def_id };
+            //     let block_hir_id = HirId {
+            //         owner: owner_id,
+            //         local_id: item_local_id,
+            //     };
+            //     if let BlockSafety::ExplicitUnsafe(hir_id) = safety_mode {
+            //         match self.tcx.hir_node(hir_id) {
+            //             hir::Node::Block(block) => {
+            //                 // check_mode = block.rules.convert_into();
+            //                 // TODO: add to thir_blocks
+            //             }
+            //             _ => unreachable!("Unexpected HIR node type."),
+            //         }
+            //     }
+            //     block_hir_id_to_safety_map.insert(block_hir_id, safety_mode);
+            //     span_to_safety_map.insert(block.span, safety_mode);
+            //     self.filler.tables.register_thir_blocks(def_path, Some(safety_mode).convert_into());
 
-                self.filler.tables.register_thir_blocks(def_path, Some(safety_mode).convert_into());
-            }
+
+            // }
+            self.visit_thir(thir_body, expr_id);
+
         } else {
             eprintln!("No THIR body found for {:?}", def_id);
         }

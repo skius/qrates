@@ -22,6 +22,7 @@ extern crate rustc_target;
 mod converters;
 mod hir_visitor;
 mod mir_visitor;
+mod thir_visitor;
 mod mirai_utils;
 mod table_filler;
 mod utils;
@@ -204,7 +205,7 @@ pub fn override_queries(
             return body;
         };
         let thir_clone = steal.borrow().clone();
-        unsafe { thir_storage::store_thir_body(tcx, def_id, thir_clone) };
+        unsafe { thir_storage::store_thir_body(tcx, def_id, thir_clone, expr_id) };
 
         Ok((steal, expr_id)) 
     };
