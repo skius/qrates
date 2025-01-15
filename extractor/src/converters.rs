@@ -4,7 +4,7 @@
 
 use corpus_database::types;
 use rustc_hir as hir;
-use rustc_middle::{mir, ty};
+use rustc_middle::{mir, ty::{self, adjustment::PointerCoercion}};
 
 pub trait ConvertInto<T> {
     fn convert_into(&self) -> T;
@@ -263,5 +263,64 @@ impl ConvertInto<types::AdtKind> for ty::AdtKind {
 impl ConvertInto<types::AdtVariantIndex> for rustc_target::abi::VariantIdx {
     fn convert_into(&self) -> types::AdtVariantIndex {
         self.index().into()
+    }
+}
+
+impl ConvertInto<types::FieldIndex> for rustc_target::abi::FieldIdx {
+    fn convert_into(&self) -> types::FieldIndex {
+        self.index().into()
+    }
+}
+
+impl ConvertInto<types::PointerCoercion> for rustc_middle::ty::adjustment::PointerCoercion {
+    fn convert_into(&self) -> types::PointerCoercion {
+        match self {
+            PointerCoercion::ReifyFnPointer => types::PointerCoercion::ReifyFnPointer,
+            PointerCoercion::UnsafeFnPointer => types::PointerCoercion::UnsafeFnPointer,
+            PointerCoercion::ClosureFnPointer(_) => types::PointerCoercion::ClosreFnPointer,
+            PointerCoercion::MutToConstPointer => types::PointerCoercion::MutToConstPointer,
+            PointerCoercion::ArrayToPointer => types::PointerCoercion::ArrayToPointer,
+            PointerCoercion::Unsize => types::PointerCoercion::Unsize,
+            PointerCoercion::DynStar => types::PointerCoercion::DynStar,
+        }
+    }
+}
+
+impl ConvertInto<types::MatchSource> for rustc_hir::MatchSource {
+    fn convert_into(&self) -> types::MatchSource {
+        match self {
+            rustc_hir::MatchSource::Normal => types::MatchSource::Normal,
+            rustc_hir::MatchSource::Postfix => types::MatchSource::Postfix,
+            rustc_hir::MatchSource::ForLoopDesugar => types::MatchSource::ForLoopDesugar,
+            rustc_hir::MatchSource::TryDesugar(hir_id) => types::MatchSource::TryDesugar,
+            rustc_hir::MatchSource::AwaitDesugar => types::MatchSource::AwaitDesugar,
+            rustc_hir::MatchSource::FormatArgs => types::MatchSource::FormatArgs,
+        }
+    }
+}
+
+impl ConvertInto<types::LitKind> for rustc_ast::ast::LitKind {
+    fn convert_into(&self) -> types::LitKind {
+        match self {
+            rustc_ast::ast::LitKind::Str(..) => types::LitKind::Str,
+            rustc_ast::ast::LitKind::ByteStr(..) => types::LitKind::ByteStr,
+            rustc_ast::ast::LitKind::CStr(..) => types::LitKind::CStr,
+            rustc_ast::ast::LitKind::Byte(_) => types::LitKind::Byte,
+            rustc_ast::ast::LitKind::Char(_) => types::LitKind::Char,
+            rustc_ast::ast::LitKind::Int(_, _) => types::LitKind::Int,
+            rustc_ast::ast::LitKind::Float(_, _) => types::LitKind::Float,
+            rustc_ast::ast::LitKind::Bool(_) => types::LitKind::Bool,
+            rustc_ast::ast::LitKind::Err(_) => types::LitKind::Err, 
+        }
+    }
+}
+
+impl ConvertInto<types::Movability> for Option<rustc_ast::Movability> {
+    fn convert_into(&self) -> types::Movability {
+        match self {
+            Some(rustc_ast::Movability::Static) => types::Movability::Static,
+            Some(rustc_ast::Movability::Movable) => types::Movability::Movable,
+            None => types::Movability::None,
+        }
     }
 }

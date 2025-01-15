@@ -27,8 +27,26 @@ inc_id BasicBlock: u64 {
 }
 /// A statement.
 inc_id Statement: u64 {}
+
+// thir types
 /// A THIR-level block
-inc_id ThirBlock: u64 {}
+inc_id ThirBlock: u64 {
+    /// A value to encode `None` of `Option<ThirBlock>`.
+    NO_THIR_BLOCK = 0u64,
+}
+inc_id ThirExpr: u64 {
+    /// A value to encode `None` of `Option<ThirExpr>`.
+    NO_THIR_EXPR = 0u64,
+}
+inc_id ThirPat: u64 {
+    /// A value to encode `None` of `Option<ThirPat>`.
+    NO_THIR_PAT = 0u64,
+}
+inc_id ThirStmt: u64 {
+    /// A value to encode `None` of `Option<ThirStmt>`.
+    NO_THIR_STMT = 0u64,
+}
+
 /// The hash of the crate as reported by the compiler.
 custom_id CrateHash: u128 {
     impl From<u128> for CrateHash {
@@ -63,6 +81,9 @@ custom_id FnParamIndex: u16 {}
 custom_id OperandIndex: u16 {}
 custom_id StatementIndex: u16 {}
 custom_id CallArgIndex: u16 {}
+custom_id ThirCallArgIndex: u16 {}
+custom_id MatchArmIdx: u16 {}
+custom_id FieldIndex: u16 {}
 
 /// Mutability of an item. Having a const variant allows merging statics with constants.
 enum Mutability {
@@ -348,6 +369,52 @@ enum UnwindAction {
     Terminate,
     Cleanup,
 }
+/// rustc_middle::ty::adjustment::PointerCoercion
+enum PointerCoercion {
+    #[default]
+    Unknown,
+    ReifyFnPointer,
+    UnsafeFnPointer,
+    ClosreFnPointer,
+    MutToConstPointer,
+    ArrayToPointer,
+    Unsize,
+    DynStar,
+}
+/// rustc_hir::hir::MatchSource
+enum MatchSource {
+    #[default]
+    Unknown,
+    Normal,
+    Postfix,
+    ForLoopDesugar,
+    TryDesugar,
+    AwaitDesugar,
+    FormatArgs,
+}
+/// rustc_hir::hir::Movability
+enum Movability {
+    #[default]
+    Unknown,
+    /// Encodes Option<Movability>::None
+    None,
+    Movable,
+    Static,
+}
+/// rustc_ast::ast::LitKind
+enum LitKind {
+    #[default]
+    Unknown,
+    Str,
+    ByteStr,
+    CStr,
+    Byte,
+    Char,
+    Int,
+    Float,
+    Bool,
+    Err,
+}
 
 // Interning tables.
 
@@ -391,6 +458,12 @@ intern nullary_op_kind<InternedString as NullOp<u8>>;
 intern unary_op_kind<InternedString as UnOp<u8>>;
 /// Interned terminator kinds.
 intern terminator_kinds<InternedString as TerminatorKind<u8>>;
+/// Interned ThirBinaryOpKind
+intern thir_binary_op_kind<InternedString as ThirBinOp<u8>>;
+/// Interned ThirLogicalOpKind
+intern thir_logical_op_kind<InternedString as ThirLogicalOp<u8>>;
+/// Interned ThirUnaryOpKind
+intern thir_unary_op_kind<InternedString as ThirUnOp<u8>>;
 
 // Relations.
 
@@ -413,8 +486,75 @@ relation function_unsafe_use(def_path: DefPath, uses_unsafe: bool);
 relation function_unsafe_reasons(def_path: DefPath, index: u32, reason: InternedString);
 
 // new relations from mir-to-thir migration
+/// THIR body expressions
+relation thir_bodies(item: Item, def_path: DefPath, body: auto ThirBlock);
 /// THIR-level block information
-relation thir_blocks(block: auto ThirBlock, def_path: DefPath, safety: ScopeSafety);
+relation thir_blocks(parent: ThirBlock, child: auto ThirBlock, safety: ScopeSafety, check_mode: BlockCheckMode, span: Span);
+
+// thir stmts
+relation thir_stmts(stmt: ThirStmt, block: ThirBlock, index: StatementIndex);
+relation thir_stmts_expr(stmt: auto ThirStmt, expr: ThirExpr);
+relation thir_stmts_let(stmt: auto ThirStmt, initializer: ThirExpr, else_block: ThirBlock, span: Span);
+
+
+// thir expressions
+relation thir_exprs(expr: ThirExpr, block: ThirBlock, ty: Type, span: Span);
+relation thir_exprs_scope(expr: auto ThirExpr, inner: ThirExpr);
+relation thir_exprs_box(expr: auto ThirExpr, inner: ThirExpr);
+relation thir_exprs_if(expr: auto ThirExpr, cond: ThirExpr, then_expr: ThirExpr, else_expr: ThirExpr);
+relation thir_exprs_call(expr: auto ThirExpr, ty: Type, fun: ThirExpr);
+relation thir_exprs_call_arg(call: ThirExpr, index: ThirCallArgIndex, arg: ThirExpr);
+relation thir_exprs_deref(expr: auto ThirExpr, inner: ThirExpr);
+relation thir_exprs_binary(expr: auto ThirExpr, op: ThirBinOp, lhs: ThirExpr, rhs: ThirExpr);
+relation thir_exprs_logical_op(expr: auto ThirExpr, op: ThirLogicalOp, lhs: ThirExpr, rhs: ThirExpr);
+relation thir_exprs_unary(expr: auto ThirExpr, op: ThirUnOp, arg: ThirExpr);
+relation thir_exprs_cast(expr: auto ThirExpr, source: ThirExpr);
+relation thir_exprs_use(expr: auto ThirExpr, source: ThirExpr);
+relation thir_exprs_never_to_any(expr: auto ThirExpr, source: ThirExpr);
+relation thir_exprs_pointer_coercion(expr: auto ThirExpr, cast: PointerCoercion, source: ThirExpr, is_from_as_cast: bool);
+relation thir_exprs_loop(expr: auto ThirExpr, body: ThirExpr);
+relation thir_exprs_let(expr: auto ThirExpr, inner: ThirExpr, pat: ThirPat);
+relation thir_pats(pat: auto ThirPat, ty: Type, span: Span); // TODO: PatKinds?
+relation thir_exprs_match(expr: auto ThirExpr, scrutinee: ThirExpr, match_source: MatchSource);
+relation thir_match_arms(match_expr: ThirExpr, arm_idx: MatchArmIdx, guard: ThirExpr, body: ThirExpr);
+relation thir_exprs_block(expr: auto ThirExpr, block: ThirBlock);
+relation thir_exprs_assign(expr: auto ThirExpr, lhs: ThirExpr, rhs: ThirExpr);
+relation thir_exprs_assign_op(expr: auto ThirExpr, op: ThirBinOp, lhs: ThirExpr, rhs: ThirExpr);
+relation thir_exprs_field(expr: auto ThirExpr, lhs: ThirExpr, variant_idx: AdtVariantIndex);
+relation thir_exprs_index(expr: auto ThirExpr, lhs: ThirExpr, index: ThirExpr);
+relation thir_exprs_var_ref(expr: auto ThirExpr); //, id: LocalVarId); // TODO: How to handle vars?
+relation thir_exprs_upvar_ref(expr: auto ThirExpr, closure_def_id: DefPath); // TODO: How to handle closures/vars?
+relation thir_exprs_borrow(expr: auto ThirExpr, borrow_kind: BorrowKind, arg: ThirExpr);
+relation thir_exprs_raw_borrow(expr: auto ThirExpr, mutability: Mutability, arg: ThirExpr);
+relation thir_exprs_break(expr: auto ThirExpr, value: ThirExpr);
+relation thir_exprs_continue(expr: auto ThirExpr);
+relation thir_exprs_return(expr: auto ThirExpr, value: ThirExpr);
+relation thir_exprs_become(expr: auto ThirExpr, value: ThirExpr);
+relation thir_exprs_const_block(expr: auto ThirExpr, did: DefPath);
+// TODO: Const block args
+relation thir_exprs_repeat(expr: auto ThirExpr, value: ThirExpr);//, count: Const); // TODO: How to handle ty::Consts?
+relation thir_exprs_array(expr: auto ThirExpr);
+relation thir_array_elements(array_expr: ThirExpr, index: u64, element: ThirExpr);
+relation thir_exprs_tuple(expr: auto ThirExpr);
+relation thir_tuple_elements(tuple_expr: ThirExpr, index: TupleFieldIndex, element: ThirExpr);
+relation thir_exprs_adt(expr: auto ThirExpr, base: ThirExpr/*, adt_def: AdtDef -- relation types_adt_def?*/, variant_idx: AdtVariantIndex/*, user_ty: UserTy*//**/); // TODO: How to handle UserTy
+relation thir_adt_field_expr(adt: ThirExpr, field_idx: FieldIndex, expr: ThirExpr);
+relation thir_exprs_place_type_ascription(expr: auto ThirExpr, source: ThirExpr, user_ty_span: Span); // TODO: Canonical user_ty
+relation thir_exprs_value_type_ascription(expr: auto ThirExpr, source: ThirExpr, user_ty_span: Span); // TODO: Canonical user_ty
+relation thir_exprs_closure(expr: auto ThirExpr, closure_id: DefPath, movability: Movability);
+relation thir_closure_upvars(closure_expr: ThirExpr, index: u32, upvar: ThirExpr);
+relation thir_exprs_literal(expr: auto ThirExpr, lit: LitKind, neg: bool);
+relation thir_exprs_non_hir_literal(expr: auto ThirExpr, scalar: u128); // TODO: Canonical user_ty, ScalarInt as u128 ok?
+relation thir_exprs_zst_literal(expr: auto ThirExpr); // TODO: Canonical user_ty
+relation thir_exprs_named_const(expr: auto ThirExpr, def_id: DefPath); //TODO: Canonical user_ty
+// TODO: args for named const
+relation thir_exprs_const_param(expr: auto ThirExpr/*, param: ParamConst*/, def_id: DefPath); // How to handle ParamConst?
+relation thir_exprs_static_ref(expr: auto ThirExpr, ty: Type, def_id: DefPath); // TODO: do we need alloc_id?
+relation thir_exprs_inline_asm(expr: auto ThirExpr, ); // TODO: inline_asm_expr?
+relation thir_exprs_offset_of(expr: auto ThirExpr, container: Type);
+// TODO: add fields for OffsetOf
+relation thir_exprs_thread_local_ref(expr: auto ThirExpr, def_id: DefPath);
+relation thir_exprs_yield(expr: auto ThirExpr, value: ThirExpr);
 
 
 /// An item that is either a constant or a static.

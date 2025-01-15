@@ -101,10 +101,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             let span = self.filler.register_span(scope_data.span);
             let mut mir_scope_safety = self.get_scope_safety(scope);
             // if let Some(hir_id) = hir_id {
-            //     eprintln!("HirId: {:?} found", hir_id);
-            //     if let Some(safety) = self.safety_map.get(&hir_id) {
-            //         eprintln!("Safety found: {:?}", safety);
-            //     }
+                // eprintln!("MIR: HirId: {:?} found", hir_id);
             // }
             
             // Try and find the span of the THIR block

@@ -7,6 +7,7 @@ use crate::mir_visitor::MirVisitor;
 use crate::table_filler::TableFiller;
 use crate::thir_storage;
 use crate::thir_visitor::ThirVisitor;
+use corpus_database::types::ThirBlock;
 use corpus_database::{tables::Tables, types};
 use hir::def_id::LocalDefId;
 use rustc_hir::def::DefKind;
@@ -134,10 +135,11 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         mir_visitor.visit();
     }
     /// Extract information from THIR.
-    fn visit_thir(&mut self, thir: Thir<'tcx>, body_id: ExprId) {
+    fn visit_thir(&mut self, thir: Thir<'tcx>, body_id: ExprId, def_path: types::DefPath) {
         let error = format!("THIR outside of an item: {:?}", body_id);
         let item = self.current_item.expect(&error);
-        let mut thir_visitor = ThirVisitor::new(self.tcx, item, &thir, body_id, &mut self.filler);
+        let (root_block,) = self.filler.tables.register_thir_bodies(item, def_path);
+        let mut thir_visitor = ThirVisitor::new(self.tcx, item, &thir, body_id, root_block, &mut self.filler);
         thir_visitor.visit();
     }
     fn visit_type(
@@ -536,7 +538,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
 
 
             // }
-            self.visit_thir(thir_body, expr_id);
+            self.visit_thir(thir_body, expr_id, def_path);
 
         } else {
             eprintln!("No THIR body found for {:?}", def_id);
