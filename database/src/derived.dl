@@ -101,3 +101,35 @@ relation selected_build_sizes(
     unsafe_statement_count: u64,
     user_unsafe_statement_count: u64,
 );
+
+// New relations for THIR migration:
+/// Selected THIR function bodies.
+relation selected_thir_bodies(build: Build, item: Item, thir_body_def_path: DefPath, body: ThirBlock);
+/// Selected THIR blocks
+relation selected_thir_blocks(build: Build, thir_body_def_path: DefPath, parent: ThirBlock, block: ThirBlock, safety: ScopeSafety, check_mode: BlockCheckMode, span: Span);
+/// Unsafe (selected) thir blocks
+relation unsafe_thir_blocks(build: Build, thir_body_def_path: DefPath, block: ThirBlock, expansion_kind: SpanExpansionKind, check_mode: BlockCheckMode, span: Span);
+/// Unsafe thir statements
+relation unsafe_thir_stmts(build: Build, stmt: ThirStmt, block: ThirBlock, index: StatementIndex, check_mode: BlockCheckMode);
+
+/// Relation between functions and their unsafe thir blocks.
+relation functions_unsafe_thir_blocks(
+    build: Build, function: Item, block: ThirBlock,
+    expansion_kind: SpanExpansionKind, check_mode: BlockCheckMode);
+
+/// Information about function size in terms of THIR statements.
+relation selected_function_thir_sizes(
+    build: Build, item: Item, def_path: DefPath,
+    visibility: TyVisibility, unsafety: Unsafety, abi: Abi,
+    uses_unsafe: bool,
+    statement_count: u64,
+    unsafe_statement_count: u64,
+    user_unsafe_statement_count: u64,
+);
+/// Informations about size of a build as a sum of its `selected_function_thir_sizes`.
+relation selected_build_thir_sizes(
+    build: Build,
+    statement_count: u64,
+    unsafe_statement_count: u64,
+    user_unsafe_statement_count: u64,
+);

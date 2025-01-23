@@ -101,6 +101,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 from_hir_call,
                 fn_span,
             } => {
+                
                 let interned_ty = self.filler.register_type(*ty);
                 let interned_fun = self.visit_expr_and_intern(&self.thir[*fun]);
                 let (interned_expr,) = self
@@ -501,6 +502,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     }
 
     fn visit_block_and_intern(&mut self, block: &'thir rustc_middle::thir::Block) -> ThirBlock {
+        eprintln!("Visiting block: {block:?}");
+
         let safety = block.safety_mode;
         let check_mode;
         if let rustc_middle::thir::BlockSafety::ExplicitUnsafe(hir_id) = safety {

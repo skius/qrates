@@ -78,3 +78,36 @@ pub fn query(loader: &Loader, report_path: &Path) {
     );
     write_csv!(report_path, unsafe_block_sizes);
 }
+
+
+pub fn new_query(loader: &Loader, report_path: &Path) {
+    let build_resolver = BuildResolver::new(loader);
+    let unsafe_thir_stmts = loader.load_unsafe_thir_stmts();
+    let unsafe_thir_blocks_by_stmts = unsafe_thir_stmts.iter().safe_group_by(
+        |(build, _stmt, block, _index, check_mode)| {
+            (build, block, check_mode)
+        },
+    );
+    let unsafe_thir_blocks_sizes_by_stmts: Vec<_> = unsafe_thir_blocks_by_stmts
+        .into_iter()
+        .map(|((build, block, check_mode), group)| {
+            (*build, block, check_mode, group.count())
+        })
+        .collect();
+
+    // TODO: don't have terminators in thir (yet)
+
+    let unsafe_thir_block_sizes = unsafe_thir_blocks_sizes_by_stmts.into_iter().map(
+        |(build, block, check_mode, statement_count)| {
+            (
+                build,
+                build_resolver.resolve(build),
+                block,
+                check_mode.to_string(),
+                statement_count,
+            )
+        },
+    );
+
+    write_csv!(report_path, unsafe_thir_block_sizes);
+}

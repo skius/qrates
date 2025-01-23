@@ -52,9 +52,18 @@ pub fn run_query(
                 sources_list_path,
             );
         }
-        "counters" => counters::query(&loader, &report_path.join("q-counters")),
-        "size" => size::query(&loader, &report_path.join("q-size")),
-        "function-size" => function_size::query(&loader, &report_path.join("function-size")),
+        "counters" => {
+            counters::query(&loader, &report_path.join("q-counters"));
+            counters::new_query(&loader, &report_path.join("q-counters"));
+        }
+        "size" => {
+            size::query(&loader, &report_path.join("q-size"));
+            size::new_query(&loader, &report_path.join("q-size"));
+        }
+        "function-size" => {
+            function_size::query(&loader, &report_path.join("function-size"));
+            function_size::new_query(&loader, &report_path.join("function-size"));
+        }
         "build-files" => build_files::query(&loader, &report_path.join("build-files")),
         "traits" => traits::query(&loader, &report_path.join("traits")),
         "types" => types::query(&loader, &report_path.join("types")),

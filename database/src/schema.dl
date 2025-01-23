@@ -489,13 +489,15 @@ relation function_unsafe_reasons(def_path: DefPath, index: u32, reason: Interned
 /// THIR body expressions
 relation thir_bodies(item: Item, def_path: DefPath, body: auto ThirBlock);
 /// THIR-level block information
-relation thir_blocks(parent: ThirBlock, child: auto ThirBlock, safety: ScopeSafety, check_mode: BlockCheckMode, span: Span);
+relation thir_blocks(parent: ThirBlock, block: auto ThirBlock, safety: ScopeSafety, check_mode: BlockCheckMode, span: Span);
 
 // thir stmts
 relation thir_stmts(stmt: ThirStmt, block: ThirBlock, index: StatementIndex);
 relation thir_stmts_expr(stmt: auto ThirStmt, expr: ThirExpr);
 relation thir_stmts_let(stmt: auto ThirStmt, initializer: ThirExpr, else_block: ThirBlock, span: Span);
 
+// link a block's expression to its parent block
+relation thir_block_expr(block: ThirBlock, expr: ThirExpr);
 
 // thir expressions
 relation thir_exprs(expr: ThirExpr, block: ThirBlock, ty: Type, span: Span);

@@ -203,7 +203,7 @@ pub fn move_extracted(workspace: &Path, target_dir: &Path) {
         "Collected {} files to move. Sleep for 20 seconds.",
         to_move.len()
     );
-    std::thread::sleep(std::time::Duration::from_secs(20));
+    std::thread::sleep(std::time::Duration::from_secs(1));
     println!("Start moving.");
 
     for (package_dir_name, package_file_names) in &file_names {

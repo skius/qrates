@@ -252,15 +252,187 @@ pub fn query(loader: &Loader, report_path: &Path) {
         },
     );
     write_csv!(report_path, selected_function_definitions);
+}
 
-    // save thir_blocks
-    // let thir_blocks = loader.load_thir_blocks();
-    // info!("thir_blocks.len = {}", thir_blocks.len());
-    // let thir_blocks = thir_blocks.iter().collect::<Vec<_>>();
-    // write_csv!(report_path, thir_blocks);
+pub fn new_query(loader: &Loader, report_path: &Path) {
+    let selected_thir_blocks;
 
-    // let selected_thir_blocks = super::utils::filter_selected(loader.load_thir_blocks().iter(), &loader.load_selected_builds(), &loader.load_def_paths(), |&(_block, path, _safety)| path, |build, &(block, path, safety)| (build, block, path, safety));
-    // let build_resolver = BuildResolver::new(loader);
-    // let selected_thir_blocks = selected_thir_blocks.iter().map(|&(build, block, path, safety)| (build, build_resolver.resolve(build), block, def_path_resolver.resolve(path), safety));
-    // write_csv!(report_path, selected_thir_blocks);
+    datapond_query!(
+        load loader {
+            relations(selected_thir_bodies, thir_blocks),
+        }
+        output selected_thir_blocks(
+            build: Build,
+            thir_body_def_path: DefPath,
+            parent: ThirBlock,
+            block: ThirBlock,
+            safety: ScopeSafety,
+            check_mode: BlockCheckMode,
+            span: Span,
+        )
+        selected_thir_blocks(
+            build, thir_body_def_path, parent, block, safety, check_mode, span
+        ) :-
+            thir_blocks(parent, block, safety, check_mode, span),
+            selected_thir_bodies(build, _, thir_body_def_path, parent).
+        
+        selected_thir_blocks(
+            build, thir_body_def_path, parent, block, safety, check_mode, span
+        ) :-
+            selected_thir_blocks(.build=build, .thir_body_def_path=thir_body_def_path, .block=parent),
+            thir_blocks(parent, block, safety, check_mode, span).
+    );
+    info!("selected_thir_blocks.len = {}", selected_thir_blocks.len());
+    loader.store_selected_thir_blocks(selected_thir_blocks.elements);
+    let selected_thir_blocks = loader.load_selected_thir_blocks();
+
+    let def_path_resolver = DefPathResolver::new(loader);
+    let span_resolver = SpanResolver::new(loader);
+    let strings = loader.load_strings();
+
+    let mut unsafe_thir_blocks_relation = Vec::new();
+    let mut unsafe_thir_blocks = Vec::new();
+
+    for &(
+        build,
+        thir_body_def_path,
+        _parent,
+        block,
+        _safety, // for unsafe_thir_blocks, safety will always be ExplicitUnsafe
+        check_mode,
+        span,
+    ) in selected_thir_blocks.iter().filter(
+        |&(
+            _build,
+            _thir_body_def_path,
+            _parent,
+            _block,
+            safety,
+            _check_mode,
+            _span,
+        )| { *safety == types::ScopeSafety::ExplicitUnsafe },
+    )
+    {
+        unsafe_thir_blocks_relation.push((
+            build,
+            thir_body_def_path,
+            block,
+            span_resolver.get_expansion_kind(span),
+            check_mode,
+            span,
+        ));
+        unsafe_thir_blocks.push((
+            build,
+            def_path_resolver.resolve(thir_body_def_path),
+            block,
+            check_mode.to_string(),
+            span_resolver.resolve(span),
+        ));
+    }
+
+    info!("Computed unsafe thir blocks: {}", unsafe_thir_blocks.len());
+    loader.store_unsafe_thir_blocks(unsafe_thir_blocks_relation);
+    info!("Saved unsafe thir blocks.");
+    write_csv!(report_path, unsafe_thir_blocks);
+    info!("Saved unsafe thir block report.");
+
+    let unsafe_thir_blocks_relation = loader.load_unsafe_thir_blocks();
+
+    // unsafe thir statements
+    let thir_statements = loader.load_thir_stmts();
+    let unsafe_thir_statements: Vec<_> = thir_statements
+        .iter()
+        .flat_map(|&(stmt, block, index)| {
+            unsafe_thir_blocks_relation
+                .iter()
+                .filter(move |&(build, _thir_body_def_path, unsafe_block, _expansion_kind, _check_mode, _span)| {
+                    *unsafe_block == block
+                })
+                .map(move |&(build, _thir_body_def_path, _unsafe_block, _expansion_kind, check_mode, span)| {
+                    (build, stmt, block, index, check_mode)
+                })
+        })
+        .collect();
+    
+    loader.store_unsafe_thir_stmts(unsafe_thir_statements.clone());
+    info!("Saved unsafe thir statements.");
+    write_csv!(report_path, unsafe_thir_statements);
+    info!("Saved unsafe thir statement report.");
+
+    // store thir stmts
+    // TODO: delete. unneeded
+    // let thir_stmts = loader.load_thir_stmts();
+    // write_csv!(report_path, thir_stmts.clone());
+
+    // TODO: don't have terminators right now in thir
+
+
+    let functions_unsafe_thir_blocks;
+    datapond_query! {
+        load loader {
+            relations(selected_thir_bodies, unsafe_thir_blocks),
+        }
+        output functions_unsafe_thir_blocks(
+            build: Build, function: Item, block: ThirBlock,
+            expansion_kind: SpanExpansionKind, check_mode: BlockCheckMode)
+        functions_unsafe_thir_blocks(build, function, block, expansion_kind, check_mode) :-
+            unsafe_thir_blocks(build, thir_body_def_path, block, expansion_kind, check_mode, _),
+            selected_thir_bodies(build, function, thir_body_def_path, _).
+    }
+    let functions_unsafe_thir_blocks = functions_unsafe_thir_blocks.elements;
+    let function_unsafe_thir_block_counts: HashMap<_, _> = functions_unsafe_thir_blocks
+        .iter()
+        .safe_group_by(|(_build, function, _scope, _expansion_kind, _check_mode)| *function)
+        .into_iter()
+        .map(|(function, group)| (function, group.count()))
+        .collect();
+    let function_user_unsafe_thir_block_counts: HashMap<_, _> = functions_unsafe_thir_blocks
+        .iter()
+        .filter(|(_build, _function, _scope, _expansion_kind, check_mode)| {
+            *check_mode == types::BlockCheckMode::UnsafeBlockUserProvided
+        })
+        .safe_group_by(|(_build, function, _scope, _expansion_kind, _check_mode)| *function)
+        .into_iter()
+        .map(|(function, group)| (function, group.count()))
+        .collect();
+    info!(
+        "functions_unsafe_thir_blocks.len = {}",
+        functions_unsafe_thir_blocks.len()
+    );
+    write_csv!(report_path, &functions_unsafe_thir_blocks);
+    loader.store_functions_unsafe_thir_blocks(functions_unsafe_thir_blocks);
+
+    let abis = loader.load_abis();
+    let trait_items = loader.load_trait_items();
+    let trait_items: HashSet<_> = trait_items
+        .iter()
+        .map(|(_trait_id, def_path, _defaultness)| def_path)
+        .collect();
+    let selected_function_definitions = loader.load_selected_function_definitions();
+    let selected_function_definitions_thir_counts = selected_function_definitions.iter().map(
+        |&(build, item, def_path, module, visibility, unsafety, abi, _return_ty, uses_unsafe)| {
+            (
+                build,
+                def_path_resolver.resolve(def_path),
+                item,
+                def_path,
+                module,
+                visibility.to_string(),
+                unsafety.to_string(),
+                &strings[abis[abi]],
+                uses_unsafe,
+                function_unsafe_thir_block_counts
+                    .get(&item)
+                    .cloned()
+                    .unwrap_or(0),
+                function_user_unsafe_thir_block_counts
+                    .get(&item)
+                    .cloned()
+                    .unwrap_or(0),
+                trait_items.contains(&def_path),
+            )
+        },
+    );
+    write_csv!(report_path, selected_function_definitions_thir_counts);
+
 }
