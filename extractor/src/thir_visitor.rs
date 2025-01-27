@@ -1,9 +1,9 @@
-use crate::converters::ConvertInto;
+use crate::{converters::ConvertInto, utils::pretty_description};
 use corpus_database::types::{self, Item, ThirBlock};
 use rustc_hir as hir;
 use rustc_middle::{
     thir::{visit::Visitor, ExprId, Thir},
-    ty::TyCtxt,
+    ty::{self, TyCtxt},
 };
 
 use crate::table_filler::TableFiller;
@@ -62,6 +62,9 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     ) -> types::ThirExpr {
         eprintln!("Visiting expr: {expr:?}");
 
+        let interned_expr_type = self.filler.register_type(expr.ty);
+
+
         let (interned_expr,) = match &expr.kind {
             rustc_middle::thir::ExprKind::Scope {
                 region_scope,
@@ -104,20 +107,64 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 
                 let interned_ty = self.filler.register_type(*ty);
                 let interned_fun = self.visit_expr_and_intern(&self.thir[*fun]);
-                let (interned_expr,) = self
+
+                let sig = ty.fn_sig(self.tcx);
+                let unsafety = sig.safety().convert_into();
+                let abi = sig.abi().name().to_string();
+                
+                // note: the retty of 'fun' must be 'interned_expr_ty', since that is the type of the current expr
+
+                let (interned_call_expr,) = self
                     .filler
                     .tables
-                    .register_thir_exprs_call(interned_ty, interned_fun);
+                    .register_thir_exprs_call(interned_ty, interned_fun, unsafety, abi, interned_expr_type);
                 for (i, arg) in args.iter().enumerate() {
                     let interned_arg = self.visit_expr_and_intern(&self.thir[*arg]);
                     self.filler.tables.register_thir_exprs_call_arg(
-                        interned_expr,
+                        interned_call_expr,
                         i.try_into().unwrap(),
                         interned_arg,
                     );
                 }
 
-                (interned_expr,)
+                // figure out call target
+                match ty.kind() {
+                    ty::TyKind::FnDef(target_id, substs) => {
+                        let generics = self.tcx.generics_of(*target_id);
+                        if generics.has_self {
+                            let self_ty = substs.type_at(0);
+                            let interned_type = self.filler.register_type(self_ty);
+                            self.filler
+                                .tables
+                                .register_thir_exprs_call_const_target_self(
+                                    interned_fun,
+                                    interned_type,
+                                );
+                        }
+                        let desc = pretty_description(self.tcx, *target_id, substs);
+                        let def_path = self.filler.resolve_def_id(*target_id);
+                        self.filler.tables.register_thir_exprs_call_const_target(
+                            interned_fun,
+                            def_path,
+                        );
+                        self.filler
+                            .tables
+                            .register_thir_exprs_call_const_target_desc(
+                                interned_fun,
+                                desc.path,
+                                desc.function_generics,
+                                desc.type_generics,
+                            );
+                    }
+                    ty::TyKind::FnPtr(..) => {
+                        // Calling a function pointer.
+                    }
+                    other => {
+                        eprintln!("Unexpected call target type: {:?}", other);
+                    },
+                }
+
+                (interned_call_expr,)
             }
             rustc_middle::thir::ExprKind::Deref { arg } => {
                 let interned_arg = self.visit_expr_and_intern(&self.thir[*arg]);
@@ -450,11 +497,10 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
         };
 
         let interned_span = self.filler.register_span(expr.span);
-        let interned_type = self.filler.register_type(expr.ty);
         self.filler.tables.register_thir_exprs(
             interned_expr,
             self.current_block,
-            interned_type,
+            interned_expr_type,
             interned_span,
         );
 

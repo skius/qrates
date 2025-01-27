@@ -70,11 +70,13 @@ pub fn run_query(
         "resolved-calls" => resolved_calls::query(&loader, &report_path.join("resolved-calls")),
         "unsafe-types" => unsafe_types::query(&loader, &report_path.join("unsafe-types")),
         "unsafe-block-groups" => {
-            unsafe_block_groups::query(&loader, &report_path.join("unsafe-block-groups"))
+            unsafe_block_groups::query(&loader, &report_path.join("unsafe-block-groups"));
+            unsafe_block_groups::new_query(&loader, &report_path.join("unsafe-block-groups"));
         }
         "unsafe-reasons" => unsafe_reasons::query(&loader, &report_path.join("unsafe-reasons")),
         "unsafe-block-calls" => {
-            unsafe_block_calls::query(&loader, &report_path.join("unsafe-block-calls"))
+            unsafe_block_calls::query(&loader, &report_path.join("unsafe-block-calls"));
+            unsafe_block_calls::new_query(&loader, &report_path.join("unsafe-block-calls"));
         }
         "unsafe-spans" => unsafe_spans::query(&loader, &report_path.join("unsafe-spans")),
         "build-meta" => build_meta::query(&loader, &report_path.join("build-meta")),

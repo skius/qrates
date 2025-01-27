@@ -504,8 +504,13 @@ relation thir_exprs(expr: ThirExpr, block: ThirBlock, ty: Type, span: Span);
 relation thir_exprs_scope(expr: auto ThirExpr, inner: ThirExpr);
 relation thir_exprs_box(expr: auto ThirExpr, inner: ThirExpr);
 relation thir_exprs_if(expr: auto ThirExpr, cond: ThirExpr, then_expr: ThirExpr, else_expr: ThirExpr);
-relation thir_exprs_call(expr: auto ThirExpr, ty: Type, fun: ThirExpr);
+
+relation thir_exprs_call(expr: auto ThirExpr, ty: Type, fun: ThirExpr, unsafety: Unsafety, abi: Abi, return_ty: Type);
 relation thir_exprs_call_arg(call: ThirExpr, index: ThirCallArgIndex, arg: ThirExpr);
+relation thir_exprs_call_const_target(fun: ThirExpr, def_id: DefPath);
+relation thir_exprs_call_const_target_desc(fun: ThirExpr, target: InternedString, function_generics: InternedString, type_generics: InternedString);
+relation thir_exprs_call_const_target_self(fun: ThirExpr, typ: Type);
+
 relation thir_exprs_deref(expr: auto ThirExpr, inner: ThirExpr);
 relation thir_exprs_binary(expr: auto ThirExpr, op: ThirBinOp, lhs: ThirExpr, rhs: ThirExpr);
 relation thir_exprs_logical_op(expr: auto ThirExpr, op: ThirLogicalOp, lhs: ThirExpr, rhs: ThirExpr);
