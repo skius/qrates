@@ -95,6 +95,8 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
         })
         .collect();
 
+    // TODO: expressions in thir would be a good metrics too
+
     // TODO: don't have terminators in thir (yet)
 
     let unsafe_thir_block_sizes = unsafe_thir_blocks_sizes_by_stmts.into_iter().map(
