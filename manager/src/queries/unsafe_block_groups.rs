@@ -400,13 +400,14 @@ fn new_report_const_call_targets(loader: &Loader, report_path: &Path) {
     let abis = loader.load_abis();
     let unsafe_thir_block_calls = loader.load_unsafe_thir_block_calls();
     let const_thir_calls = unsafe_thir_block_calls.iter().flat_map(
-        |(build, block, _check_mode, call, fun, unsafety, abi, _return_ty)| {
+        |(build, block, check_mode, call, fun, unsafety, abi, _return_ty)| {
             const_calls_map.get(fun).map(|def_path| {
                 Some((
                     build,
                     build_resolver.resolve(*build),
                     def_path_resolver.resolve(*def_path),
                     block,
+                    check_mode,
                     call,
                     fun,
                     unsafety.to_string(),
