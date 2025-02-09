@@ -34,6 +34,8 @@ def load(path, names):
         dtype['trait_crate'] = 'str'
     if 'target_crate' in names:
         dtype['target_crate'] = 'str'
+    if 'has_trailing_expr' in names:
+        dtype['has_trailing_expr'] = 'bool'
     return pd.read_csv(
         os.path.join('../data', path),
         header=None,
@@ -335,7 +337,7 @@ def load_selected_function_definitions_thir_counts():
             "build",
             "crate", "crate_hash", "def_path", "def_path_hash", "summary_key", # resolved def path
             "item", "def_path_id", "module", "visibility", "unsafety", "abi",
-            "uses_unsafe", "unsafe_thir_block_count", "user_unsafe_thir_block_count",
+            "uses_unsafe", "unsafe_block_count", "user_unsafe_block_count",
             "is_trait_item"
         ],
     )
@@ -372,7 +374,7 @@ def load_unsafe_thir_block_sizes():
         [
             "build",
             "package_name", "package_version", "crate_name", "crate_hash", "edition",
-            "block", "check_mode", "statement_count"
+            "block", "check_mode", "statement_count", "call_expr_count", "has_trailing_expr"
         ],
     )
 

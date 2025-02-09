@@ -104,7 +104,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 from_hir_call,
                 fn_span,
             } => {
-                
+                // eprintln!("Call: {:?}", expr);
+
                 let interned_ty = self.filler.register_type(*ty);
                 let interned_fun = self.visit_expr_and_intern(&self.thir[*fun]);
 
@@ -119,8 +120,10 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     }
                     _ => (Unsafety::Unknown, "Unknown".to_string())
                 };
-                
+
                 // note: the retty of 'fun' must be 'interned_expr_ty', since that is the type of the current expr
+                // TODO: look into self.tcx.erase_regions() for removing binders
+                
 
                 let (interned_call_expr,) = self
                     .filler
@@ -138,6 +141,10 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 // figure out call target
                 match ty.kind() {
                     ty::TyKind::FnDef(target_id, substs) => {
+                        // eprintln!("Call target: {:?}", target_id);
+                        // eprintln!("is trait: {:?}", self.tcx.trait_of_item(*target_id).is_some());
+
+
                         let generics = self.tcx.generics_of(*target_id);
                         if generics.has_self {
                             let self_ty = substs.type_at(0);
@@ -164,6 +171,14 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                                 desc.type_generics,
                             );
                     }
+                    // // TODO: look into closures
+                    // ty::TyKind::Closure(def_id, _) => {
+                    //     let def_path = self.filler.resolve_def_id(*def_id);
+                    //     self.filler.tables.register_thir_exprs_call_closure_target(
+                    //         interned_fun,
+                    //         def_path,
+                    //     );
+                    // }
                     ty::TyKind::FnPtr(..) => {
                         // Calling a function pointer.
                     }
@@ -585,8 +600,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             self.visit_stmt_and_intern(&self.thir[*stmt], idx);
         }
         if let Some(expr) = block.expr {
-            self.visit_expr_and_intern(&self.thir[expr]);
-            // TODO: Could assign the last expression to the block directly?
+            let interned_expr = self.visit_expr_and_intern(&self.thir[expr]);
+            self.filler.tables.register_thir_block_expr(child_block, interned_expr);
         }
 
         // reset block

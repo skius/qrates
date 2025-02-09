@@ -420,6 +420,17 @@ fn new_report_const_call_targets(loader: &Loader, report_path: &Path) {
 }
 
 pub fn new_query(loader: &Loader, report_path: &Path) {
+    // quick debug, store trait_items
+    let def_path_resolver = DefPathResolver::new(loader);
+    let trait_items = loader.load_trait_items();
+    let trait_items_debug: Vec<_> = trait_items
+        .iter()
+        .map(|(trait_id, def_path, defaultness)| {
+            (trait_id, def_path_resolver.resolve(*def_path), defaultness)
+        })
+        .collect();
+    write_csv!(report_path, trait_items_debug);
+
     new_count_called_functions(loader);
     new_report_called_functions(loader, report_path);
     new_report_non_const_call_targets(loader, report_path);
