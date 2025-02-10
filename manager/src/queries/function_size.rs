@@ -2,6 +2,7 @@
 
 use super::utils::{BuildResolver, DefPathResolver};
 use crate::write_csv;
+use corpus_database::types::ThirExpr;
 use corpus_database::{tables::Loader, types};
 use std::collections::HashMap;
 use std::path::Path;
@@ -283,6 +284,45 @@ fn new_collect_function_sizes(loader: &Loader) {
         if let Some(&(build, thir_body_def_path, safety, check_mode)) =
             function_thir_blocks.get(block)
         {
+            {
+                let (build_stmt, build_unsafe_stmt, build_user_unsafe_stmt) =
+                    selected_build_thir_sizes_map.entry(build).or_default();
+                *build_stmt += 1;
+                if safety != types::ScopeSafety::Safe {
+                    *build_unsafe_stmt += 1;
+                }
+                if safety == types::ScopeSafety::FnUnsafe
+                    || check_mode == types::BlockCheckMode::UnsafeBlockUserProvided
+                {
+                    *build_user_unsafe_stmt += 1;
+                }
+            }
+            {
+                let (build_stmt, build_unsafe_stmt, build_user_unsafe_stmt) =
+                    selected_function_thir_sizes_map
+                        .entry(thir_body_def_path)
+                        .or_default();
+                *build_stmt += 1;
+                if safety != types::ScopeSafety::Safe {
+                    *build_unsafe_stmt += 1;
+                }
+                if safety == types::ScopeSafety::FnUnsafe
+                    || check_mode == types::BlockCheckMode::UnsafeBlockUserProvided
+                {
+                    *build_user_unsafe_stmt += 1;
+                }
+            }
+        }
+    }
+
+    // count a block's trailing expression as statement as well
+    let no_thir_expr: ThirExpr = 0u64.into();
+    for &(block, expr) in loader.load_thir_block_expr().iter() {
+        if expr == no_thir_expr {
+            continue;
+        }
+
+        if let Some(&(build, thir_body_def_path, safety, check_mode)) = function_thir_blocks.get(&block) {
             {
                 let (build_stmt, build_unsafe_stmt, build_user_unsafe_stmt) =
                     selected_build_thir_sizes_map.entry(build).or_default();
