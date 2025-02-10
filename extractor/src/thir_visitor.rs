@@ -14,6 +14,8 @@ pub(crate) struct ThirVisitor<'a, 'b, 'thir, 'tcx> {
     thir: &'thir Thir<'tcx>,
     body_id: ExprId,
     current_block: ThirBlock,
+    current_block_safety: types::ScopeSafety,
+    current_block_check_mode: types::BlockCheckMode,
     filler: &'a mut TableFiller<'b, 'tcx>,
 }
 
@@ -32,6 +34,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             thir,
             body_id,
             current_block: root_block,
+            current_block_safety: types::ScopeSafety::Safe,
+            current_block_check_mode: types::BlockCheckMode::DefaultBlock,
             filler,
         }
     }
@@ -105,6 +109,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 fn_span,
             } => {
                 // eprintln!("Call: {:?}", expr);
+                // eprintln!("Current block: {:?}", self.current_block);
 
                 let interned_ty = self.filler.register_type(*ty);
                 let interned_fun = self.visit_expr_and_intern(&self.thir[*fun]);
@@ -573,8 +578,9 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     fn visit_block_and_intern(&mut self, block: &'thir rustc_middle::thir::Block) -> ThirBlock {
         // eprintln!("Visiting block: {block:?}");
 
+
         let safety = block.safety_mode;
-        let check_mode;
+        let mut check_mode;
         if let rustc_middle::thir::BlockSafety::ExplicitUnsafe(hir_id) = safety {
             match self.tcx.hir_node(hir_id) {
                 hir::Node::Block(block) => {
@@ -586,28 +592,44 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             check_mode = types::BlockCheckMode::DefaultBlock;
         }
 
+        let mut qrates_safety = Some(safety).convert_into();
+
+        let parent_block = self.current_block;
+        let parent_block_safety = self.current_block_safety;
+        let parent_block_check_mode = self.current_block_check_mode;
+
+        // We inherit unsafety from the parent block.
+        if matches!(safety, rustc_middle::thir::BlockSafety::Safe) {
+            qrates_safety = parent_block_safety;
+            check_mode = parent_block_check_mode;
+        }
+
         let span = self.filler.register_span(block.span);
-        let (child_block,) = self.filler.tables.register_thir_blocks(
-            self.current_block,
-            Some(safety).convert_into(),
+        let (the_block,) = self.filler.tables.register_thir_blocks(
+            parent_block,
+            qrates_safety,
             check_mode,
             span,
         );
-        let parent_block = self.current_block;
-        self.current_block = child_block;
+        self.current_block = the_block;
+        self.current_block_safety = qrates_safety;
+        self.current_block_check_mode = check_mode;
+
 
         for (idx, stmt) in block.stmts.iter().enumerate() {
             self.visit_stmt_and_intern(&self.thir[*stmt], idx);
         }
         if let Some(expr) = block.expr {
             let interned_expr = self.visit_expr_and_intern(&self.thir[expr]);
-            self.filler.tables.register_thir_block_expr(child_block, interned_expr);
+            self.filler.tables.register_thir_block_expr(the_block, interned_expr);
         }
 
         // reset block
         self.current_block = parent_block;
+        self.current_block_safety = parent_block_safety;
+        self.current_block_check_mode = parent_block_check_mode;
 
-        child_block
+        the_block
     }
 
     pub fn visit(&mut self) {
