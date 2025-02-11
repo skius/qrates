@@ -119,6 +119,12 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
 
     // })
 
+    let mut v = vec![];
+    for i in 0..10000 {
+        v.push([0u8 ;3]);
+    }
+    Box::leak(Box::new(v));
+
     let blocks_and_call_exprs;
     datapond_query! {
         load loader {

@@ -397,6 +397,12 @@ fn new_collect_function_sizes(loader: &Loader) {
         )
         .collect();
 
+    let mut v = vec![];
+    for i in 0..10000 {
+        v.push([0u8 ;3]);
+    }
+    Box::leak(Box::new(v));
+
     loader.store_selected_function_thir_sizes(selected_function_thir_sizes);
 }
 
