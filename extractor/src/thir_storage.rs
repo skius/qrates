@@ -1,10 +1,12 @@
+//! This module stores THIR bodies in thread local storage.
+//! This is necessary because the query results will have been consumed by the time we need to access the THIR bodies.
+
 extern crate rustc_hash;
 
 use rustc_hash::FxHashMap;
-use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::def_id::LocalDefId;
 use rustc_middle::{thir::{ExprId, Thir}, ty::TyCtxt};
 
-/// This module stores THIR bodies in thread local storage.
 
 thread_local! {
     static THIR_BODIES: std::cell::RefCell<FxHashMap<LocalDefId, (Thir<'static>, ExprId)>> = Default::default();

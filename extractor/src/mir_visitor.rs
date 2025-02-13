@@ -19,7 +19,6 @@ pub(crate) struct MirVisitor<'a, 'b, 'tcx> {
     filler: &'a mut TableFiller<'b, 'tcx>,
     root_scope: types::Scope,
     scopes: HashMap<mir::SourceScope, types::Scope>,
-    safety_map: HashMap<Span, rustc_middle::thir::BlockSafety>,
 }
 
 impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
@@ -29,7 +28,6 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
         body_id: rustc_span::def_id::LocalDefId,
         body: &'a mir::Body<'tcx>,
         filler: &'a mut TableFiller<'b, 'tcx>,
-        safety_map: HashMap<Span, rustc_middle::thir::BlockSafety>,
     ) -> Self {
         let body_path = filler.resolve_local_def_id(body_id);
         let (root_scope,) = filler.tables.register_mir_cfgs(item, body_path);
@@ -41,7 +39,6 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             root_scope,
             filler,
             scopes: HashMap::new(),
-            safety_map,
         }
     }
     /// Visit MIR and extract all information about it.
@@ -104,14 +101,6 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                 // eprintln!("MIR: HirId: {:?} found", hir_id);
             // }
             
-            // Try and find the span of the THIR block
-            let search_span = scope_data.span;
-            if let Some(safety_mode) = self.safety_map.get(&search_span) {
-                // eprintln!("Safety mode found: {:?}", safety_mode);
-                mir_scope_safety = Some(safety_mode.clone());
-            } else {
-                // eprintln!("Safety mode not found for span: {:?}", search_span);
-            }
 
             let group;
             let check_mode;

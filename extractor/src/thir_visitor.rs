@@ -1,8 +1,8 @@
 use crate::{converters::ConvertInto, utils::pretty_description};
-use corpus_database::types::{self, Item, ThirBlock, Unsafety};
+use corpus_database::types::{self, ThirBlock, Unsafety};
 use rustc_hir as hir;
 use rustc_middle::{
-    thir::{visit::Visitor, ExprId, Thir},
+    thir::{ExprId, Thir},
     ty::{self, TyCtxt},
 };
 
@@ -10,7 +10,6 @@ use crate::table_filler::TableFiller;
 
 pub(crate) struct ThirVisitor<'a, 'b, 'thir, 'tcx> {
     tcx: TyCtxt<'tcx>,
-    item: Item,
     thir: &'thir Thir<'tcx>,
     body_id: ExprId,
     current_block: ThirBlock,
@@ -21,7 +20,6 @@ pub(crate) struct ThirVisitor<'a, 'b, 'thir, 'tcx> {
 impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     pub fn new(
         tcx: TyCtxt<'tcx>,
-        item: Item,
         thir: &'thir Thir<'tcx>,
         body_id: ExprId,
         root_block: ThirBlock,
@@ -29,7 +27,6 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     ) -> Self {
         Self {
             tcx,
-            item,
             thir,
             body_id,
             current_block: root_block,
@@ -38,15 +35,11 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
         }
     }
 
-    // TODO: add comments for all unused variables about potentially integrating them into the database in the future
-
     // Returns the guard and body expr of the match arm
     fn visit_match_arm_and_intern(
         &mut self,
         arm: &'thir rustc_middle::thir::Arm<'tcx>,
     ) -> (types::ThirExpr, types::ThirExpr) {
-        // eprintln!("Visiting arm: {arm:?}");
-
         let interned_guard = if let Some(guard) = &arm.guard {
             self.visit_expr_and_intern(&self.thir[*guard])
         } else {
@@ -62,16 +55,13 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
         &mut self,
         expr: &'thir rustc_middle::thir::Expr<'tcx>,
     ) -> types::ThirExpr {
-        // eprintln!("Visiting expr: {expr:?}");
-
         let interned_expr_type = self.filler.register_type(expr.ty);
 
 
         let (interned_expr,) = match &expr.kind {
             rustc_middle::thir::ExprKind::Scope {
-                region_scope,
-                lint_level,
                 value,
+                ..
             } => {
                 let interned_value = self.visit_expr_and_intern(&self.thir[*value]);
                 self.filler.tables.register_thir_exprs_scope(interned_value)
@@ -81,10 +71,10 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 self.filler.tables.register_thir_exprs_box(interned_value)
             }
             rustc_middle::thir::ExprKind::If {
-                if_then_scope,
                 cond,
                 then,
                 else_opt,
+                ..
             } => {
                 let interned_cond = self.visit_expr_and_intern(&self.thir[*cond]);
                 let interned_then = self.visit_expr_and_intern(&self.thir[*then]);
@@ -103,12 +93,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 ty,
                 fun,
                 args,
-                from_hir_call,
-                fn_span,
+                ..
             } => {
-                // eprintln!("Call: {:?}", expr);
-                // eprintln!("Current block: {:?}", self.current_block);
-
                 let interned_ty = self.filler.register_type(*ty);
                 let interned_fun = self.visit_expr_and_intern(&self.thir[*fun]);
 
@@ -124,10 +110,6 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     _ => (Unsafety::Unknown, "Unknown".to_string())
                 };
 
-                // note: the retty of 'fun' must be 'interned_expr_ty', since that is the type of the current expr
-                // TODO: look into self.tcx.erase_regions() for removing binders
-                
-
                 let (interned_call_expr,) = self
                     .filler
                     .tables
@@ -141,13 +123,9 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     );
                 }
 
-                // figure out call target
                 match ty.kind() {
+                    // We only care about const targets
                     ty::TyKind::FnDef(target_id, substs) => {
-                        // eprintln!("Call target: {:?}", target_id);
-                        // eprintln!("is trait: {:?}", self.tcx.trait_of_item(*target_id).is_some());
-
-
                         let generics = self.tcx.generics_of(*target_id);
                         if generics.has_self {
                             let self_ty = substs.type_at(0);
@@ -174,20 +152,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                                 desc.type_generics,
                             );
                     }
-                    // // TODO: look into closures
-                    // ty::TyKind::Closure(def_id, _) => {
-                    //     let def_path = self.filler.resolve_def_id(*def_id);
-                    //     self.filler.tables.register_thir_exprs_call_closure_target(
-                    //         interned_fun,
-                    //         def_path,
-                    //     );
-                    // }
-                    ty::TyKind::FnPtr(..) => {
-                        // Calling a function pointer.
-                    }
-                    other => {
-                        eprintln!("Unexpected call target type: {:?}", other);
-                    },
+                    _ => {},
                 }
 
                 (interned_call_expr,)
@@ -263,9 +228,9 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             }
             rustc_middle::thir::ExprKind::Match {
                 scrutinee,
-                scrutinee_hir_id,
                 arms,
                 match_source,
+                ..
             } => {
                 let interned_scrutinee = self.visit_expr_and_intern(&self.thir[*scrutinee]);
 
@@ -307,7 +272,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             rustc_middle::thir::ExprKind::Field {
                 lhs,
                 variant_index,
-                name,
+                ..
             } => {
                 let interned_lhs = self.visit_expr_and_intern(&self.thir[*lhs]);
                 self.filler.tables.register_thir_exprs_field(interned_lhs, variant_index.convert_into())
@@ -319,13 +284,12 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     .tables
                     .register_thir_exprs_index(interned_lhs, interned_index)
             }
-            rustc_middle::thir::ExprKind::VarRef { id } => {
-                // let interned_id = self.filler.register_local_id(*id);
+            rustc_middle::thir::ExprKind::VarRef { .. } => {
                 self.filler.tables.register_thir_exprs_var_ref()
             }
             rustc_middle::thir::ExprKind::UpvarRef {
                 closure_def_id,
-                var_hir_id,
+                ..
             } => {
                 let interned_def_path = self.filler.resolve_def_id(*closure_def_id);
                 self.filler
@@ -344,7 +308,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     .tables
                     .register_thir_exprs_raw_borrow(mutability.convert_into(), interned_arg)
             }
-            rustc_middle::thir::ExprKind::Break { label, value } => {
+            rustc_middle::thir::ExprKind::Break { value, .. } => {
                 let interned_value = if let Some(value) = value {
                     self.visit_expr_and_intern(&self.thir[*value])
                 } else {
@@ -352,7 +316,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 };
                 self.filler.tables.register_thir_exprs_break(interned_value)
             }
-            rustc_middle::thir::ExprKind::Continue { label } => {
+            rustc_middle::thir::ExprKind::Continue { .. } => {
                 self.filler.tables.register_thir_exprs_continue()
             }
             rustc_middle::thir::ExprKind::Return { value } => {
@@ -371,15 +335,14 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     .tables
                     .register_thir_exprs_become(interned_value)
             }
-            rustc_middle::thir::ExprKind::ConstBlock { did, args } => {
+            rustc_middle::thir::ExprKind::ConstBlock { did, .. } => {
                 let interned_def_path = self.filler.resolve_def_id(*did);
                 self.filler
                     .tables
                     .register_thir_exprs_const_block(interned_def_path)
             }
-            rustc_middle::thir::ExprKind::Repeat { value, count } => {
+            rustc_middle::thir::ExprKind::Repeat { value, .. } => {
                 let interned_value = self.visit_expr_and_intern(&self.thir[*value]);
-                // let interned_count = self.visit_expr_and_intern(&self.thir[*count]);
                 self.filler
                     .tables
                     .register_thir_exprs_repeat(interned_value)
@@ -423,8 +386,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             }
             rustc_middle::thir::ExprKind::PlaceTypeAscription {
                 source,
-                user_ty,
                 user_ty_span,
+                ..
             } => {
                 let interned_source = self.visit_expr_and_intern(&self.thir[*source]);
                 let interned_user_ty_span = self.filler.register_span(*user_ty_span);
@@ -437,8 +400,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             }
             rustc_middle::thir::ExprKind::ValueTypeAscription {
                 source,
-                user_ty,
                 user_ty_span,
+                ..
             } => {
                 let interned_source = self.visit_expr_and_intern(&self.thir[*source]);
                 let interned_user_ty_span = self.filler.register_span(*user_ty_span);
@@ -465,35 +428,34 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 .filler
                 .tables
                 .register_thir_exprs_literal(lit.node.convert_into(), *neg),
-            rustc_middle::thir::ExprKind::NonHirLiteral { lit, user_ty } => {
+            rustc_middle::thir::ExprKind::NonHirLiteral { lit, .. } => {
                 let db_lit = lit.to_bits_unchecked();
                 self.filler
                     .tables
                     .register_thir_exprs_non_hir_literal(db_lit)
             }
-            rustc_middle::thir::ExprKind::ZstLiteral { user_ty } => {
+            rustc_middle::thir::ExprKind::ZstLiteral { .. } => {
                 self.filler.tables.register_thir_exprs_zst_literal()
             }
             rustc_middle::thir::ExprKind::NamedConst {
                 def_id,
-                args,
-                user_ty,
+                ..
             } => {
                 let interned_def_path = self.filler.resolve_def_id(*def_id);
                 self.filler
                     .tables
                     .register_thir_exprs_named_const(interned_def_path)
             }
-            rustc_middle::thir::ExprKind::ConstParam { param, def_id } => {
+            rustc_middle::thir::ExprKind::ConstParam { def_id, .. } => {
                 let interned_def_path = self.filler.resolve_def_id(*def_id);
                 self.filler
                     .tables
                     .register_thir_exprs_const_param(interned_def_path)
             }
             rustc_middle::thir::ExprKind::StaticRef {
-                alloc_id,
                 ty,
                 def_id,
+                ..
             } => {
                 let interned_def_path = self.filler.resolve_def_id(*def_id);
                 let interned_ty = self.filler.register_type(*ty);
@@ -501,10 +463,10 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     .tables
                     .register_thir_exprs_static_ref(interned_ty, interned_def_path)
             }
-            rustc_middle::thir::ExprKind::InlineAsm(inline_asm_expr) => {
+            rustc_middle::thir::ExprKind::InlineAsm(_) => {
                 self.filler.tables.register_thir_exprs_inline_asm()
             }
-            rustc_middle::thir::ExprKind::OffsetOf { container, fields } => {
+            rustc_middle::thir::ExprKind::OffsetOf { container, .. } => {
                 let interned_container = self.filler.register_type(*container);
                 self.filler
                     .tables
@@ -535,8 +497,6 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     }
 
     fn visit_stmt_and_intern(&mut self, stmt: &'thir rustc_middle::thir::Stmt, idx: usize) -> types::ThirStmt {
-        // eprintln!("Visiting stmt: {stmt:?}");
-
         let (interned_stmt,) = match &stmt.kind {
             rustc_middle::thir::StmtKind::Expr { expr, scope: _ } => {
                 let interned_expr = self.visit_expr_and_intern(&self.thir[*expr]);
@@ -544,12 +504,9 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             }
             rustc_middle::thir::StmtKind::Let {
                 initializer,
-                remainder_scope: _,
-                init_scope: _,
-                pattern: _,
-                lint_level: _,
                 else_block,
                 span,
+                ..
             } => {
                 let init_expr = if let Some(init) = initializer {
                     self.visit_expr_and_intern(&self.thir[*init])
@@ -575,8 +532,6 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     }
 
     fn visit_block_and_intern(&mut self, block: &'thir rustc_middle::thir::Block) -> ThirBlock {
-        // eprintln!("Visiting block: {block:?}");
-
         let safety = block.safety_mode;
         let check_mode;
         if let rustc_middle::thir::BlockSafety::ExplicitUnsafe(hir_id) = safety {
@@ -622,70 +577,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     }
 
     pub fn visit(&mut self) {
-        // need to visit params and body.
-        // body is an expr.
-        self.visit_expr(&self.thir[self.body_id]);
+        self.visit_expr_and_intern(&self.thir[self.body_id]);
 
-        // no need yet
-        // for (param_id, param) in self.thir.params.iter_enumerated() {
-        //     if let Some(pat) = param.pat.as_deref() {
-        //         self.visit_pat(pat);}
-        // }
-    }
-}
-
-impl<'a, 'b, 'thir, 'tcx: 'thir> Visitor<'thir, 'tcx> for ThirVisitor<'a, 'b, 'thir, 'tcx> {
-    fn thir(&self) -> &'thir Thir<'tcx> {
-        self.thir
-    }
-
-    fn visit_expr(&mut self, expr: &'thir rustc_middle::thir::Expr<'tcx>) {
-        // do our thing
-        // eprintln!("Visiting expr: {:?}", expr);
-
-        let interned_expr = self.visit_expr_and_intern(expr);
-
-        // eprintln!("Ignoring returned interned expr: {:?}", interned_expr);
-    }
-
-    fn visit_arm(&mut self, arm: &'thir rustc_middle::thir::Arm<'tcx>) {
-        panic!("visit_arm from Visitor trait");
-
-        // do our thing
-        eprintln!("Visiting arm: {:?}", arm);
-
-        let (interned_guard, interned_body) = self.visit_match_arm_and_intern(arm);
-
-        eprintln!("Ignoring returned interned guard: {:?}", interned_guard);
-        eprintln!("Ignoring returned interned body: {:?}", interned_body);
-    }
-
-    fn visit_stmt(&mut self, stmt: &'thir rustc_middle::thir::Stmt<'tcx>) {
-        panic!("visit_stmt from Visitor trait");
-
-        // do our thing
-        eprintln!("Visiting stmt: {:?}", stmt);
-
-        // visit sub-expressions
-        let interned_stmt = self.visit_stmt_and_intern(stmt, 0);
-
-        eprintln!("Ignoring returned interned stmt: {:?}", interned_stmt);
-    }
-
-    fn visit_block(&mut self, block: &'thir rustc_middle::thir::Block) {
-        // do our thing
-        // eprintln!("Visiting block: {:?}", block);
-
-        let interned_block = self.visit_block_and_intern(block);
-        
-        eprintln!("Ignoring returned interned block: {:?}", interned_block);
-    }
-
-    fn visit_pat(&mut self, pat: &'thir rustc_middle::thir::Pat<'tcx>) {
-        // do our thing
-        // eprintln!("Visiting pat: {:?}", pat);
-
-        // visit sub-expressions
-        rustc_middle::thir::visit::walk_pat(self, pat);
     }
 }
