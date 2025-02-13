@@ -267,15 +267,6 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                 visibility,
                 types::TyDefKind::TyAlias,
             ),
-            // TODO - skius(2): Remove OpaqueTy downstream
-            // hir::ItemKind::OpaqueTy(..) => self.visit_type(
-            //     item,
-            //     def_path,
-            //     def_id,
-            //     name,
-            //     visibility,
-            //     types::TyDefKind::OpaqueTy,
-            // ),
             hir::ItemKind::Enum(..) => self.visit_type(
                 item,
                 def_path,

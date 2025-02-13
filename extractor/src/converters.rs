@@ -208,7 +208,6 @@ impl<'tcx> ConvertInto<types::TyPrimitive> for ty::TyKind<'tcx> {
                 ty::UintTy::U128 => U128,
             },
             ty::TyKind::Float(float_ty) => match float_ty {
-                // TODO - skius(2): Make sure F16 and F128 are used downstream
                 ty::FloatTy::F16 => F16,
                 ty::FloatTy::F32 => F32,
                 ty::FloatTy::F64 => F64,
