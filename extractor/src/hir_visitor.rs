@@ -378,7 +378,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                 def_path,
                 self.current_module,
                 types::TyVisibility::Unknown,
-                types::Unsafety::Unknown,
+                types::Safety::Unknown,
                 "Closure".to_string(),
                 return_type,
             ),
@@ -406,7 +406,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     def_path,
                     self.current_module,
                     visibility,
-                    types::Unsafety::Unsafe,
+                    types::Safety::Unsafe,
                     "ForeignItem".to_string(),
                     return_type,
                 );

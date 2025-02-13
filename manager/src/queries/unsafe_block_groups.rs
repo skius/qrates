@@ -20,7 +20,7 @@ fn count_called_functions(loader: &Loader) {
         output unsafe_block_calls(
             build: Build, block: BasicBlock, unsafe_scope: Scope,
             check_mode: BlockCheckMode, call: FunctionCall,
-            unsafety: Unsafety, abi: Abi, return_ty: Type)
+            unsafety: Safety, abi: Abi, return_ty: Type)
         unsafe_block_calls(
             build, block, unsafe_scope, check_mode, call, unsafety, abi, return_ty
         ) :-
@@ -228,7 +228,7 @@ fn new_count_called_functions(loader: &Loader) {
         output unsafe_thir_block_calls(
             build: Build, block: ThirBlock,
             check_mode: BlockCheckMode, call: ThirExpr, fun: ThirExpr,
-            unsafety: Unsafety, abi: Abi, return_ty: Type)
+            unsafety: Safety, abi: Abi, return_ty: Type)
         unsafe_thir_block_calls(
             build, block, check_mode, call, fun, unsafety, abi, return_ty
         ) :-

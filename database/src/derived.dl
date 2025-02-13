@@ -51,7 +51,7 @@ relation functions_unsafe_blocks(
 /// `uses_unsafe` – whether the function uses unsafe code directly in its body.
 relation selected_function_definitions(
     build: Build, item: Item, def_path: DefPath, module: Module,
-    visibility: TyVisibility, unsafety: Unsafety, abi: Abi,
+    visibility: TyVisibility, unsafety: Safety, abi: Abi,
     return_ty: Type, uses_unsafe: bool);
 /// Statements used inside unsafe blocks.
 /// `unsafe_scope` is a foreign key into `unsafe_blocks.scope`.
@@ -66,13 +66,13 @@ relation unsafe_terminators(
 /// Function calls inside unsafe blocks.
 relation unsafe_block_calls(
     build: Build, block: BasicBlock, unsafe_scope: Scope, check_mode: BlockCheckMode,
-    call: FunctionCall, unsafety: Unsafety, abi: Abi, return_ty: Type);
+    call: FunctionCall, unsafety: Safety, abi: Abi, return_ty: Type);
 /// Function calls inside unsafe blocks for which we statically know the
 /// precise call target.
 relation unsafe_block_calls_known_target(
     build: Build, block: BasicBlock, unsafe_scope: Scope, unsafe_scope_span: Span,
     check_mode: BlockCheckMode, call: FunctionCall, call_target: DefPath,
-    unsafety: Unsafety, abi: Abi, return_ty: Type);
+    unsafety: Safety, abi: Abi, return_ty: Type);
 /// Counts of calls in unsafe blocks.
 relation unsafe_block_call_counts(
     build: Build, unsafe_scope: Scope, check_mode: BlockCheckMode, call_count: u16);
@@ -88,7 +88,7 @@ relation adts_with_unsafe_cell_fields(
 /// Information about function size in terms of MIR statements and terminators.
 relation selected_function_sizes(
     build: Build, item: Item, def_path: DefPath,
-    visibility: TyVisibility, unsafety: Unsafety, abi: Abi,
+    visibility: TyVisibility, unsafety: Safety, abi: Abi,
     uses_unsafe: bool,
     statement_count: u64,
     unsafe_statement_count: u64,
@@ -120,7 +120,7 @@ relation functions_unsafe_thir_blocks(
 /// Information about function size in terms of THIR statements.
 relation selected_function_thir_sizes(
     build: Build, item: Item, def_path: DefPath,
-    visibility: TyVisibility, unsafety: Unsafety, abi: Abi,
+    visibility: TyVisibility, unsafety: Safety, abi: Abi,
     uses_unsafe: bool,
     statement_count: u64,
     unsafe_statement_count: u64,
@@ -137,7 +137,7 @@ relation selected_build_thir_sizes(
 /// call is the call expression, fun is the expression corresponding to the function being called
 relation unsafe_thir_block_calls(
     build: Build, block: ThirBlock, check_mode: BlockCheckMode,
-    call: ThirExpr, fun: ThirExpr, unsafety: Unsafety, abi: Abi, return_ty: Type);
+    call: ThirExpr, fun: ThirExpr, unsafety: Safety, abi: Abi, return_ty: Type);
 /// Counts of calls in unsafe thir blocks.
 relation unsafe_thir_block_call_counts(
     build: Build, block: ThirBlock, check_mode: BlockCheckMode, call_count: u16);

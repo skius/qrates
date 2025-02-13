@@ -1,5 +1,5 @@
 use crate::{converters::ConvertInto, utils::pretty_description};
-use corpus_database::types::{self, ThirBlock, Unsafety};
+use corpus_database::types::{self, ThirBlock, Safety};
 use rustc_hir as hir;
 use rustc_middle::{
     thir::{ExprId, Thir},
@@ -89,7 +89,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 let interned_ty = self.filler.register_type(*ty);
                 let interned_fun = self.visit_expr_and_intern(&self.thir[*fun]);
 
-                let (unsafety, abi) = match ty.kind() {
+                let (safety, abi) = match ty.kind() {
                     ty::TyKind::FnDef(..) | ty::TyKind::FnPtr(..) => {
                         let sig = ty.fn_sig(self.tcx);
                         (sig.safety().convert_into(), sig.abi().name().to_string())
@@ -98,13 +98,13 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                         let sig = args.as_closure().sig();
                         (sig.safety().convert_into(), sig.abi().name().to_string())
                     }
-                    _ => (Unsafety::Unknown, "Unknown".to_string()),
+                    _ => (Safety::Unknown, "Unknown".to_string()),
                 };
 
                 let (interned_call_expr,) = self.filler.tables.register_thir_exprs_call(
                     interned_ty,
                     interned_fun,
-                    unsafety,
+                    safety,
                     abi,
                     interned_expr_type,
                 );

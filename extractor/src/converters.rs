@@ -22,13 +22,11 @@ impl ConvertInto<types::TyVisibility> for ty::Visibility<rustc_hir::def_id::DefI
     }
 }
 
-// TODO - skius(2): Rename Unsafety to Safety?
-impl ConvertInto<types::Unsafety> for hir::Safety {
-    fn convert_into(&self) -> types::Unsafety {
+impl ConvertInto<types::Safety> for hir::Safety {
+    fn convert_into(&self) -> types::Safety {
         match self {
-            hir::Safety::Unsafe => types::Unsafety::Unsafe,
-            // TODO - skius(2): Rename Normal to Safe?
-            hir::Safety::Safe => types::Unsafety::Normal,
+            hir::Safety::Unsafe => types::Safety::Unsafe,
+            hir::Safety::Safe => types::Safety::Safe,
         }
     }
 }
@@ -160,7 +158,7 @@ impl<'tcx> ConvertInto<types::AggregateKind> for mir::AggregateKind<'tcx> {
     }
 }
 
-// TODO - skius(2): is rustc_middle::thir::BlockSafety the right type?
+// TODO - mir deletion: Rename ScopeSafety and 'scope' references to blocks
 impl ConvertInto<types::ScopeSafety> for Option<rustc_middle::thir::BlockSafety> {
     fn convert_into(&self) -> types::ScopeSafety {
         match self {
@@ -168,7 +166,7 @@ impl ConvertInto<types::ScopeSafety> for Option<rustc_middle::thir::BlockSafety>
             Some(rustc_middle::thir::BlockSafety::BuiltinUnsafe) => {
                 types::ScopeSafety::BuiltinUnsafe
             }
-            // TODO - skius(2): Remove FnUnsafe downstream
+            // TODO - mir deletion: Remove FnUnsafe downstream
             // Some(rustc_middle::thir::BlockSafety::FnUnsafe) => types::ScopeSafety::FnUnsafe,
             Some(rustc_middle::thir::BlockSafety::ExplicitUnsafe(_)) => {
                 types::ScopeSafety::ExplicitUnsafe
