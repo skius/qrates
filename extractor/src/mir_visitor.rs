@@ -134,11 +134,9 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             self.scopes.insert(scope, scope_id);
         }
     }
-    // TODO - skius(2): Is rustc_middle::thir::BlockSafety the right type? was mir::Safety
     fn get_scope_safety(&self, scope: mir::SourceScope) -> Option<rustc_middle::thir::BlockSafety> {
         match self.body.source_scopes[scope].local_data {
-            // TODO - skius(2): Where to get safety from?
-            mir::ClearCrossCrate::Set(ref data) => None, /*Some(data.safety)*/,
+            mir::ClearCrossCrate::Set(ref data) => None,
             mir::ClearCrossCrate::Clear => None,
         }
     }
