@@ -21,7 +21,6 @@ struct CorpusCallbacks {}
 
 impl rustc_driver::Callbacks for CorpusCallbacks {
     fn config(&mut self, config: &mut Config) {
-        // save_cfg_configuration(&config.crate_cfg);
         config.override_queries = Some(override_queries);
     }
 
@@ -30,7 +29,6 @@ impl rustc_driver::Callbacks for CorpusCallbacks {
         compiler: &Compiler,
         queries: &'tcx Queries<'tcx>,
     ) -> Compilation {
-        // TODO - skius: Check that moving from String-based to Symbol-based (and from config-stage to analysis-stage is fine)
         save_cfg_configuration(&compiler.sess.psess.config);
         analyse(compiler, queries);
         Compilation::Continue
@@ -66,6 +64,7 @@ fn main() {
                 "-Zalways-encode-mir",
                 "-Zmir-opt-level=0",
                 "-Cdebug-assertions=on",
+                // Note: To disable incremental compilation, remove this flag entirely.
                 "-Cincremental=incremental",
             ]
             .iter()

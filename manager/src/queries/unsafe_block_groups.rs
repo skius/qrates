@@ -220,6 +220,7 @@ pub fn query(loader: &Loader, report_path: &Path) {
 
 /// Count how many functions are called from each unsafe thir block.
 fn new_count_called_functions(loader: &Loader) {
+    // We join on `closest_unsafe_block`, because we don't want `unsafe { { foo(); } }` to be counted as a safe call.
     let unsafe_thir_block_calls;
     datapond_query! {
         load loader {
