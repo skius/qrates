@@ -115,7 +115,6 @@ impl ConvertInto<types::BorrowKind> for mir::BorrowKind {
 impl ConvertInto<types::CastKind> for mir::CastKind {
     fn convert_into(&self) -> types::CastKind {
         match self {
-            // TODO - skius(2): use _source ?
             mir::CastKind::PointerCoercion(coercion, _source) => match coercion {
                 ty::adjustment::PointerCoercion::ReifyFnPointer => types::CastKind::ReifyFnPointer,
                 ty::adjustment::PointerCoercion::UnsafeFnPointer => {
@@ -123,8 +122,7 @@ impl ConvertInto<types::CastKind> for mir::CastKind {
                 }
                 ty::adjustment::PointerCoercion::ClosureFnPointer(usafety) => match usafety {
                     hir::Safety::Unsafe => types::CastKind::UnsafeClosureFnPointer,
-                    // TODO - skius: Rename Normal to Safe?
-                    hir::Safety::Safe => types::CastKind::NormalClosureFnPointer,
+                    hir::Safety::Safe => types::CastKind::SafeClosureFnPointer,
                 },
                 ty::adjustment::PointerCoercion::MutToConstPointer => {
                     types::CastKind::MutToConstPointer
@@ -133,10 +131,9 @@ impl ConvertInto<types::CastKind> for mir::CastKind {
                 ty::adjustment::PointerCoercion::Unsize => types::CastKind::UnsizePointer,
                 ty::adjustment::PointerCoercion::DynStar => types::CastKind::DynStar,
             },
-            // TODO - skius(2): Rename below two downstream?
-            mir::CastKind::PointerExposeProvenance => types::CastKind::PointerExposeAddress,
+            mir::CastKind::PointerExposeProvenance => types::CastKind::PointerExposeProvenance,
             mir::CastKind::PointerWithExposedProvenance => {
-                types::CastKind::PointerFromExposedAddress
+                types::CastKind::PointerWithExposedProvenance
             }
             mir::CastKind::IntToInt => types::CastKind::IntToInt,
             mir::CastKind::FloatToInt => types::CastKind::FloatToInt,
@@ -156,13 +153,8 @@ impl<'tcx> ConvertInto<types::AggregateKind> for mir::AggregateKind<'tcx> {
             mir::AggregateKind::Tuple => types::AggregateKind::Tuple,
             mir::AggregateKind::Adt(..) => types::AggregateKind::Adt,
             mir::AggregateKind::Closure(..) => types::AggregateKind::Closure,
-            // TODO - skius: Remove Generator AggregateKind?
-            // mir::AggregateKind::Generator(..) => types::AggregateKind::Generator,
-            // TODO - skius: 2nd try: not sure why remove. Coroutine exists => Just rename Generator to Coroutine
-            mir::AggregateKind::Coroutine(..) => types::AggregateKind::Generator,
-            // TODO - skius(2): Add CoroutineClosure downstream
+            mir::AggregateKind::Coroutine(..) => types::AggregateKind::Coroutine,
             mir::AggregateKind::CoroutineClosure(..) => types::AggregateKind::CoroutineClosure,
-            // TODO - skius(2): Add RawPtr downstream
             mir::AggregateKind::RawPtr(..) => types::AggregateKind::RawPtr,
         }
     }
