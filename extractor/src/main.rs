@@ -14,8 +14,8 @@ use rustc_interface::{
     interface::{Compiler, Config},
     Queries,
 };
-use std::process;
 use rustc_session::EarlyDiagCtxt;
+use std::process;
 
 struct CorpusCallbacks {}
 

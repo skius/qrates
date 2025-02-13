@@ -145,9 +145,11 @@ fn new_report_unsafe_block_calls(loader: &Loader, report_path: &Path) {
     let summary_keys = loader.load_summary_keys();
     let unsafe_thir_block_calls = loader.load_unsafe_thir_block_calls();
 
-    let thir_block_to_span: HashMap<_, _> = loader.load_thir_blocks().iter().map(
-        |&(_parent, block, _safety, _check_mode, span)| (block, span),
-    ).collect();
+    let thir_block_to_span: HashMap<_, _> = loader
+        .load_thir_blocks()
+        .iter()
+        .map(|&(_parent, block, _safety, _check_mode, span)| (block, span))
+        .collect();
 
     let unsafe_thir_block_calls = unsafe_thir_block_calls.iter().map(
         |&(build, block, check_mode, call, fun, unsafety, abi, _return_ty)| {
@@ -195,7 +197,6 @@ fn new_report_unsafe_block_calls(loader: &Loader, report_path: &Path) {
     );
     write_csv!(report_path, unsafe_thir_block_calls);
 }
-
 
 /// Report information about all thir calls in our codebase.
 fn new_report_all_calls(loader: &Loader, report_path: &Path) {

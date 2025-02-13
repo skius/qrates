@@ -81,7 +81,11 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                 call_site_span,
                 expansion_data.kind.convert_into(),
                 expansion_data.kind.descr().to_string(),
-                location.file.name.prefer_remapped_unconditionaly().to_string(),
+                location
+                    .file
+                    .name
+                    .prefer_remapped_unconditionaly()
+                    .to_string(),
                 location.line as u16,
                 location.col.to_usize() as u16,
             );
@@ -90,7 +94,11 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                 self.tables.register_macro_expansions(
                     interned_span,
                     symbol.to_string(),
-                    def_site_location.file.name.prefer_remapped_unconditionaly().to_string(),
+                    def_site_location
+                        .file
+                        .name
+                        .prefer_remapped_unconditionaly()
+                        .to_string(),
                     def_site_location.line as u16,
                     def_site_location.col.to_usize() as u16,
                 );
@@ -282,7 +290,7 @@ impl<'a, 'tcx> TableFiller<'a, 'tcx> {
                     interned_type
                 }
                 // TODO - skius(2): Add downstream support for CoroutineClosure
-                ty::TyKind::CoroutineClosure(def_id, _args ) => {
+                ty::TyKind::CoroutineClosure(def_id, _args) => {
                     let interned_type = self.insert_new_type_into_table("CoroutineClosure", typ);
                     let coroutine_closure_def_path = self.resolve_def_id(*def_id);
                     // self.tables

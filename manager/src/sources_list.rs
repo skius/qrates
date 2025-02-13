@@ -59,8 +59,11 @@ impl CratesList {
         let config = GlobalContext::default().expect("Unable to create default Cargo config");
         let _lock = config.acquire_package_cache_lock(CacheLockMode::MutateExclusive);
         let crates_io = SourceId::crates_io(&config).expect("Unable to create crates.io source ID");
-        let mut source = RegistrySource::remote(crates_io, &HashSet::new(), &config).expect("Unable to create registry source");
-        source.block_until_ready().expect("Unable to block until ready");
+        let mut source = RegistrySource::remote(crates_io, &HashSet::new(), &config)
+            .expect("Unable to create registry source");
+        source
+            .block_until_ready()
+            .expect("Unable to block until ready");
         let creation_date = SystemTime::now();
         let mut crates = Vec::new();
         for crate_name in super::top_crates::top_crates_by_download_count(count) {

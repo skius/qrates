@@ -222,15 +222,9 @@ fn new_collect_function_sizes(loader: &Loader) {
         selected_blocks
             .iter()
             .map(
-                |&(
-                    build,
-                    thir_body_def_path,
-                    _parent,
-                    block,
-                    safety,
-                    check_mode,
-                    _span,
-                )| { (block, (build, thir_body_def_path, safety, check_mode)) },
+                |&(build, thir_body_def_path, _parent, block, safety, check_mode, _span)| {
+                    (block, (build, thir_body_def_path, safety, check_mode))
+                },
             )
             .collect()
     };
@@ -283,8 +277,10 @@ fn new_collect_function_sizes(loader: &Loader) {
     let mut selected_build_thir_sizes_map: HashMap<_, (u64, u64, u64)> = HashMap::new();
 
     for (_stmt, block, closest_unsafe_block, _index) in loader.load_thir_stmts().iter() {
-        if let Some(&(build, thir_body_def_path, safety, check_mode)) =
-            function_thir_blocks.get(closest_unsafe_block).or(function_thir_blocks.get(block)) // For sizes of safe blocks
+        if let Some(&(build, thir_body_def_path, safety, check_mode)) = function_thir_blocks
+            .get(closest_unsafe_block)
+            .or(function_thir_blocks.get(block))
+        // For sizes of safe blocks
         {
             {
                 let (build_stmt, build_unsafe_stmt, build_user_unsafe_stmt) =
@@ -330,8 +326,8 @@ fn new_collect_function_sizes(loader: &Loader) {
             closest_unsafe_block: ThirBlock,
         )
 
-        thir_block_expr_and_closest_unsafe(block, expr, closest_unsafe_block) :- 
-            thir_block_expr(block, expr), 
+        thir_block_expr_and_closest_unsafe(block, expr, closest_unsafe_block) :-
+            thir_block_expr(block, expr),
             thir_exprs(.expr=expr, .closest_unsafe_block=closest_unsafe_block).
     }
     for &(block, expr, closest_unsafe_block) in thir_block_expr_and_closest_unsafe.elements.iter() {
@@ -339,7 +335,10 @@ fn new_collect_function_sizes(loader: &Loader) {
             continue;
         }
 
-        if let Some(&(build, thir_body_def_path, safety, check_mode)) = function_thir_blocks.get(&closest_unsafe_block).or(function_thir_blocks.get(&block)) {
+        if let Some(&(build, thir_body_def_path, safety, check_mode)) = function_thir_blocks
+            .get(&closest_unsafe_block)
+            .or(function_thir_blocks.get(&block))
+        {
             {
                 let (build_stmt, build_unsafe_stmt, build_user_unsafe_stmt) =
                     selected_build_thir_sizes_map.entry(build).or_default();

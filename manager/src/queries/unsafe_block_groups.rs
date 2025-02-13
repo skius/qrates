@@ -237,7 +237,7 @@ fn new_count_called_functions(loader: &Loader) {
             thir_exprs(.closest_unsafe_block=block, .expr=call),
             thir_exprs_call(
                 .expr=call, .fun=fun, .unsafety=unsafety,
-                .abi=abi, .return_ty=return_ty).   
+                .abi=abi, .return_ty=return_ty).
     }
     let unsafe_thir_block_calls_relation = unsafe_thir_block_calls.elements;
     info!(
@@ -254,12 +254,7 @@ fn new_count_called_functions(loader: &Loader) {
         )
         .into_iter()
         .map(|((build, block, check_mode), group)| {
-            (
-                build,
-                block,
-                check_mode,
-                group.count().try_into().unwrap(),
-            )
+            (build, block, check_mode, group.count().try_into().unwrap())
         })
         .collect();
     info!(
@@ -290,8 +285,6 @@ fn new_count_called_functions(loader: &Loader) {
     loader.store_unsafe_thir_block_calls(unsafe_thir_block_calls_relation);
     loader.store_unsafe_thir_block_call_counts(unsafe_thir_block_call_counts_relation);
     loader.store_unsafe_thir_block_no_calls(unsafe_thir_block_no_calls_relation);
-
-
 }
 
 /// Report how many function calls each unsafe thir block contains.

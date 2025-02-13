@@ -2,7 +2,10 @@
 
 use crate::write_csv;
 use cargo::core::Package;
-use corpus_database::{tables::Loader, types::{Build, InternedString, PackageVersion}};
+use corpus_database::{
+    tables::Loader,
+    types::{Build, InternedString, PackageVersion},
+};
 use corpus_queries_derive::datapond_query;
 use std::path::Path;
 
@@ -15,7 +18,13 @@ pub fn query(loader: &Loader, report_path: &Path) {
 
     let Some(crate_name) = strings.lookup_str("build_script_build") else {
         // Provide empty csv
-        let build_script_crates: Vec<(Build, InternedString, InternedString, InternedString, String)> = Vec::new();
+        let build_script_crates: Vec<(
+            Build,
+            InternedString,
+            InternedString,
+            InternedString,
+            String,
+        )> = Vec::new();
         write_csv!(report_path, build_script_crates);
         return;
     };

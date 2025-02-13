@@ -122,15 +122,10 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         self.current_item = old_item;
     }
     /// Extract information from unoptmized MIR.
-    fn visit_mir(
-        &mut self,
-        body_id: rustc_span::def_id::LocalDefId,
-        body: &mir::Body<'tcx>,
-    ) {
+    fn visit_mir(&mut self, body_id: rustc_span::def_id::LocalDefId, body: &mir::Body<'tcx>) {
         let error = format!("Mir outside of an item: {:?}", body.span);
         let item = self.current_item.expect(&error);
-        let mut mir_visitor =
-            MirVisitor::new(self.tcx, item, body_id, body, &mut self.filler);
+        let mut mir_visitor = MirVisitor::new(self.tcx, item, body_id, body, &mut self.filler);
         mir_visitor.visit();
     }
     /// Extract information from THIR.
@@ -138,7 +133,8 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         let error = format!("THIR outside of an item: {:?}", body_id);
         let item = self.current_item.expect(&error);
         let (root_block,) = self.filler.tables.register_thir_bodies(item, def_path);
-        let mut thir_visitor = ThirVisitor::new(self.tcx, &thir, body_id, root_block, &mut self.filler);
+        let mut thir_visitor =
+            ThirVisitor::new(self.tcx, &thir, body_id, root_block, &mut self.filler);
         thir_visitor.visit();
     }
     fn visit_type(
@@ -461,12 +457,12 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
         };
         self.visit_mir(def_id, mir_body);
 
-
         // run the query to ensure our hook has received the body if for some reason it has not been run yet
         let _ = self.tcx.thir_body(def_id);
         let thir_body = unsafe { thir_storage::retrieve_thir_body(self.tcx, def_id) };
         let def_path = self.filler.resolve_local_def_id(def_id);
-        let (thir_body, expr_id) = thir_body.expect(&format!("No THIR body found for {:?}", def_id));
+        let (thir_body, expr_id) =
+            thir_body.expect(&format!("No THIR body found for {:?}", def_id));
         self.visit_thir(thir_body, expr_id, def_path);
     }
     fn nested_visit_map<'this>(&'this mut self) -> Self::Map {

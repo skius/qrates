@@ -4,7 +4,10 @@
 
 use corpus_database::types;
 use rustc_hir as hir;
-use rustc_middle::{mir, ty::{self, adjustment::PointerCoercion}};
+use rustc_middle::{
+    mir,
+    ty::{self, adjustment::PointerCoercion},
+};
 
 pub trait ConvertInto<T> {
     fn convert_into(&self) -> T;
@@ -101,9 +104,7 @@ impl ConvertInto<types::BorrowKind> for mir::BorrowKind {
             mir::BorrowKind::Fake(mir::FakeBorrowKind::Shallow) => types::BorrowKind::Shallow,
             // TODO - skius(2): Add Deep borrowkind downstream
             mir::BorrowKind::Fake(mir::FakeBorrowKind::Deep) => types::BorrowKind::Deep,
-            mir::BorrowKind::Mut {
-                kind,
-            } => {
+            mir::BorrowKind::Mut { kind } => {
                 match kind {
                     mir::MutBorrowKind::Default => types::BorrowKind::Mut,
                     mir::MutBorrowKind::TwoPhaseBorrow => types::BorrowKind::MutTwoPhase,
@@ -121,7 +122,9 @@ impl ConvertInto<types::CastKind> for mir::CastKind {
             // TODO - skius(2): use _source ?
             mir::CastKind::PointerCoercion(coercion, _source) => match coercion {
                 ty::adjustment::PointerCoercion::ReifyFnPointer => types::CastKind::ReifyFnPointer,
-                ty::adjustment::PointerCoercion::UnsafeFnPointer => types::CastKind::UnsafeFnPointer,
+                ty::adjustment::PointerCoercion::UnsafeFnPointer => {
+                    types::CastKind::UnsafeFnPointer
+                }
                 ty::adjustment::PointerCoercion::ClosureFnPointer(usafety) => match usafety {
                     hir::Safety::Unsafe => types::CastKind::UnsafeClosureFnPointer,
                     // TODO - skius: Rename Normal to Safe?
@@ -136,7 +139,9 @@ impl ConvertInto<types::CastKind> for mir::CastKind {
             },
             // TODO - skius(2): Rename below two downstream?
             mir::CastKind::PointerExposeProvenance => types::CastKind::PointerExposeAddress,
-            mir::CastKind::PointerWithExposedProvenance => types::CastKind::PointerFromExposedAddress,
+            mir::CastKind::PointerWithExposedProvenance => {
+                types::CastKind::PointerFromExposedAddress
+            }
             mir::CastKind::IntToInt => types::CastKind::IntToInt,
             mir::CastKind::FloatToInt => types::CastKind::FloatToInt,
             mir::CastKind::IntToFloat => types::CastKind::IntToFloat,
@@ -172,10 +177,14 @@ impl ConvertInto<types::ScopeSafety> for Option<rustc_middle::thir::BlockSafety>
     fn convert_into(&self) -> types::ScopeSafety {
         match self {
             Some(rustc_middle::thir::BlockSafety::Safe) => types::ScopeSafety::Safe,
-            Some(rustc_middle::thir::BlockSafety::BuiltinUnsafe) => types::ScopeSafety::BuiltinUnsafe,
+            Some(rustc_middle::thir::BlockSafety::BuiltinUnsafe) => {
+                types::ScopeSafety::BuiltinUnsafe
+            }
             // TODO - skius(2): Remove FnUnsafe downstream
             // Some(rustc_middle::thir::BlockSafety::FnUnsafe) => types::ScopeSafety::FnUnsafe,
-            Some(rustc_middle::thir::BlockSafety::ExplicitUnsafe(_)) => types::ScopeSafety::ExplicitUnsafe,
+            Some(rustc_middle::thir::BlockSafety::ExplicitUnsafe(_)) => {
+                types::ScopeSafety::ExplicitUnsafe
+            }
             None => types::ScopeSafety::Unknown,
         }
     }
@@ -310,7 +319,7 @@ impl ConvertInto<types::LitKind> for rustc_ast::ast::LitKind {
             rustc_ast::ast::LitKind::Int(_, _) => types::LitKind::Int,
             rustc_ast::ast::LitKind::Float(_, _) => types::LitKind::Float,
             rustc_ast::ast::LitKind::Bool(_) => types::LitKind::Bool,
-            rustc_ast::ast::LitKind::Err(_) => types::LitKind::Err, 
+            rustc_ast::ast::LitKind::Err(_) => types::LitKind::Err,
         }
     }
 }

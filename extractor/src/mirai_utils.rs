@@ -13,8 +13,8 @@ use log_derive::{logfn, logfn_inputs};
 use rustc_hir::def_id::DefId;
 use rustc_hir::definitions::{DefPathData, DisambiguatedDefPathData};
 use rustc_hir::{ItemKind, Node};
-use rustc_middle::ty::{GenericArgKind, GenericArgsRef};
 use rustc_middle::ty::{self, Ty, TyCtxt, TyKind};
+use rustc_middle::ty::{GenericArgKind, GenericArgsRef};
 use std::rc::Rc;
 
 /// Returns the location of the rust system binaries that are associated with this build of Mirai.

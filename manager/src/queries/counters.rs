@@ -275,7 +275,7 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
         ) :-
             thir_blocks(parent, block, safety, check_mode, span),
             selected_thir_bodies(build, _, thir_body_def_path, parent).
-        
+
         selected_thir_blocks(
             build, thir_body_def_path, parent, block, safety, check_mode, span
         ) :-
@@ -302,17 +302,10 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
         check_mode,
         span,
     ) in selected_thir_blocks.iter().filter(
-        |&(
-            _build,
-            _thir_body_def_path,
-            _parent,
-            _block,
-            safety,
-            _check_mode,
-            _span,
-        )| { *safety == types::ScopeSafety::ExplicitUnsafe },
-    )
-    {
+        |&(_build, _thir_body_def_path, _parent, _block, safety, _check_mode, _span)| {
+            *safety == types::ScopeSafety::ExplicitUnsafe
+        },
+    ) {
         unsafe_thir_blocks_relation.push((
             build,
             thir_body_def_path,
@@ -345,15 +338,31 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
         .flat_map(|&(stmt, _block, closest_unsafe_block, index)| {
             unsafe_thir_blocks_relation
                 .iter()
-                .filter(move |&(build, _thir_body_def_path, unsafe_block, _expansion_kind, _check_mode, _span)| {
-                    *unsafe_block == closest_unsafe_block
-                })
-                .map(move |&(build, _thir_body_def_path, _unsafe_block, _expansion_kind, check_mode, span)| {
-                    (build, stmt, closest_unsafe_block, index, check_mode)
-                })
+                .filter(
+                    move |&(
+                        build,
+                        _thir_body_def_path,
+                        unsafe_block,
+                        _expansion_kind,
+                        _check_mode,
+                        _span,
+                    )| { *unsafe_block == closest_unsafe_block },
+                )
+                .map(
+                    move |&(
+                        build,
+                        _thir_body_def_path,
+                        _unsafe_block,
+                        _expansion_kind,
+                        check_mode,
+                        span,
+                    )| {
+                        (build, stmt, closest_unsafe_block, index, check_mode)
+                    },
+                )
         })
         .collect();
-    
+
     loader.store_unsafe_thir_stmts(unsafe_thir_statements.clone());
     info!("Saved unsafe thir statements.");
     write_csv!(report_path, unsafe_thir_statements);
@@ -426,5 +435,4 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
         },
     );
     write_csv!(report_path, selected_function_definitions_thir_counts);
-
 }

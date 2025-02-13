@@ -98,14 +98,14 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
             let span = self.filler.register_span(scope_data.span);
             let mut mir_scope_safety = self.get_scope_safety(scope);
             // if let Some(hir_id) = hir_id {
-                // eprintln!("MIR: HirId: {:?} found", hir_id);
+            // eprintln!("MIR: HirId: {:?} found", hir_id);
             // }
-            
 
             let group;
             let check_mode;
             // TODO - skius(2): Is rustc_middle::thir::BlockSafety the right type? was mir::Safety
-            if let Some(rustc_middle::thir::BlockSafety::ExplicitUnsafe(hir_id)) = &mir_scope_safety {
+            if let Some(rustc_middle::thir::BlockSafety::ExplicitUnsafe(hir_id)) = &mir_scope_safety
+            {
                 // TODO - skius(2): Is hir_node the appropriate successor of .hir().get()?
                 match self.tcx.hir_node(*hir_id) {
                     hir::Node::Block(block) => {
@@ -138,7 +138,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
     fn get_scope_safety(&self, scope: mir::SourceScope) -> Option<rustc_middle::thir::BlockSafety> {
         match self.body.source_scopes[scope].local_data {
             // TODO - skius(2): Where to get safety from?
-            mir::ClearCrossCrate::Set(ref data) => None /*Some(data.safety)*/,
+            mir::ClearCrossCrate::Set(ref data) => None, /*Some(data.safety)*/,
             mir::ClearCrossCrate::Clear => None,
         }
     }
@@ -541,7 +541,11 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                 };
                 "Call"
             }
-            mir::TerminatorKind::TailCall { func, args, fn_span } => {
+            mir::TerminatorKind::TailCall {
+                func,
+                args,
+                fn_span,
+            } => {
                 // TODO - skius(2): Handle TailCall downstream.
                 "TailCall"
             }

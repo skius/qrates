@@ -22,11 +22,11 @@ extern crate rustc_target;
 mod converters;
 mod hir_visitor;
 mod mir_visitor;
-mod thir_visitor;
 mod mirai_utils;
 mod table_filler;
-mod utils;
 mod thir_storage;
+mod thir_visitor;
+mod utils;
 
 use lazy_static::lazy_static;
 use rustc_data_structures::fx::FxIndexSet;
@@ -188,14 +188,11 @@ pub fn analyse<'tcx>(compiler: &Compiler, queries: &'tcx Queries<'tcx>) {
     });
 }
 
-pub fn override_queries(
-    _session: &Session,
-    providers: &mut rustc_middle::util::Providers,
-) {
-// TODO - skius(2): Check if entire unsafety_check_result override can really be disabled. Seems like it was disabled.
-//     providers.queries.check_unsafety = unsafety_check_result;
-//     // providers.unsafety_check_result_for_const_arg = unsafety_check_result_for_const_arg;
-    
+pub fn override_queries(_session: &Session, providers: &mut rustc_middle::util::Providers) {
+    // TODO - skius(2): Check if entire unsafety_check_result override can really be disabled. Seems like it was disabled.
+    //     providers.queries.check_unsafety = unsafety_check_result;
+    //     // providers.unsafety_check_result_for_const_arg = unsafety_check_result_for_const_arg;
+
     providers.queries.thir_body = |tcx, def_id| {
         let mut providers = rustc_middle::util::Providers::default();
         rustc_mir_build::provide(&mut providers);
@@ -207,7 +204,7 @@ pub fn override_queries(
         let thir_clone = steal.borrow().clone();
         unsafe { thir_storage::store_thir_body(tcx, def_id, thir_clone, expr_id) };
 
-        Ok((steal, expr_id)) 
+        Ok((steal, expr_id))
     };
 }
 

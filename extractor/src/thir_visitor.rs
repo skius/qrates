@@ -57,12 +57,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
     ) -> types::ThirExpr {
         let interned_expr_type = self.filler.register_type(expr.ty);
 
-
         let (interned_expr,) = match &expr.kind {
-            rustc_middle::thir::ExprKind::Scope {
-                value,
-                ..
-            } => {
+            rustc_middle::thir::ExprKind::Scope { value, .. } => {
                 let interned_value = self.visit_expr_and_intern(&self.thir[*value]);
                 self.filler.tables.register_thir_exprs_scope(interned_value)
             }
@@ -89,12 +85,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     interned_else,
                 )
             }
-            rustc_middle::thir::ExprKind::Call {
-                ty,
-                fun,
-                args,
-                ..
-            } => {
+            rustc_middle::thir::ExprKind::Call { ty, fun, args, .. } => {
                 let interned_ty = self.filler.register_type(*ty);
                 let interned_fun = self.visit_expr_and_intern(&self.thir[*fun]);
 
@@ -107,13 +98,16 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                         let sig = args.as_closure().sig();
                         (sig.safety().convert_into(), sig.abi().name().to_string())
                     }
-                    _ => (Unsafety::Unknown, "Unknown".to_string())
+                    _ => (Unsafety::Unknown, "Unknown".to_string()),
                 };
 
-                let (interned_call_expr,) = self
-                    .filler
-                    .tables
-                    .register_thir_exprs_call(interned_ty, interned_fun, unsafety, abi, interned_expr_type);
+                let (interned_call_expr,) = self.filler.tables.register_thir_exprs_call(
+                    interned_ty,
+                    interned_fun,
+                    unsafety,
+                    abi,
+                    interned_expr_type,
+                );
                 for (i, arg) in args.iter().enumerate() {
                     let interned_arg = self.visit_expr_and_intern(&self.thir[*arg]);
                     self.filler.tables.register_thir_exprs_call_arg(
@@ -139,10 +133,9 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                         }
                         let desc = pretty_description(self.tcx, *target_id, substs);
                         let def_path = self.filler.resolve_def_id(*target_id);
-                        self.filler.tables.register_thir_exprs_call_const_target(
-                            interned_fun,
-                            def_path,
-                        );
+                        self.filler
+                            .tables
+                            .register_thir_exprs_call_const_target(interned_fun, def_path);
                         self.filler
                             .tables
                             .register_thir_exprs_call_const_target_desc(
@@ -152,7 +145,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                                 desc.type_generics,
                             );
                     }
-                    _ => {},
+                    _ => {}
                 }
 
                 (interned_call_expr,)
@@ -234,12 +227,14 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             } => {
                 let interned_scrutinee = self.visit_expr_and_intern(&self.thir[*scrutinee]);
 
-                let (match_expr,) = self.filler
+                let (match_expr,) = self
+                    .filler
                     .tables
                     .register_thir_exprs_match(interned_scrutinee, match_source.convert_into());
 
                 for (i, arm) in arms.iter().enumerate() {
-                    let (interned_guard, interned_body) = self.visit_match_arm_and_intern(&self.thir[*arm]);
+                    let (interned_guard, interned_body) =
+                        self.visit_match_arm_and_intern(&self.thir[*arm]);
                     self.filler.tables.register_thir_match_arms(
                         match_expr,
                         i.into(),
@@ -270,12 +265,12 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     .register_thir_exprs_assign_op(op, interned_lhs, interned_rhs)
             }
             rustc_middle::thir::ExprKind::Field {
-                lhs,
-                variant_index,
-                ..
+                lhs, variant_index, ..
             } => {
                 let interned_lhs = self.visit_expr_and_intern(&self.thir[*lhs]);
-                self.filler.tables.register_thir_exprs_field(interned_lhs, variant_index.convert_into())
+                self.filler
+                    .tables
+                    .register_thir_exprs_field(interned_lhs, variant_index.convert_into())
             }
             rustc_middle::thir::ExprKind::Index { lhs, index } => {
                 let interned_lhs = self.visit_expr_and_intern(&self.thir[*lhs]);
@@ -287,10 +282,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             rustc_middle::thir::ExprKind::VarRef { .. } => {
                 self.filler.tables.register_thir_exprs_var_ref()
             }
-            rustc_middle::thir::ExprKind::UpvarRef {
-                closure_def_id,
-                ..
-            } => {
+            rustc_middle::thir::ExprKind::UpvarRef { closure_def_id, .. } => {
                 let interned_def_path = self.filler.resolve_def_id(*closure_def_id);
                 self.filler
                     .tables
@@ -352,7 +344,11 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
 
                 for (i, field) in fields.iter().enumerate() {
                     let field_expr = self.visit_expr_and_intern(&self.thir[*field]);
-                    self.filler.tables.register_thir_array_elements(interned_array_expr, i.try_into().unwrap(), field_expr);
+                    self.filler.tables.register_thir_array_elements(
+                        interned_array_expr,
+                        i.try_into().unwrap(),
+                        field_expr,
+                    );
                 }
 
                 (interned_array_expr,)
@@ -362,7 +358,11 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
 
                 for (i, field) in fields.iter().enumerate() {
                     let field_expr = self.visit_expr_and_intern(&self.thir[*field]);
-                    self.filler.tables.register_thir_tuple_elements(interned_tuple_expr, i.try_into().unwrap(), field_expr);
+                    self.filler.tables.register_thir_tuple_elements(
+                        interned_tuple_expr,
+                        i.try_into().unwrap(),
+                        field_expr,
+                    );
                 }
 
                 (interned_tuple_expr,)
@@ -374,12 +374,18 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     self.filler.tables.get_no_thir_expr()
                 };
 
-                
-                let (interned_adt_expr,) = self.filler.tables.register_thir_exprs_adt(base, adt_expr.variant_index.convert_into());
+                let (interned_adt_expr,) = self
+                    .filler
+                    .tables
+                    .register_thir_exprs_adt(base, adt_expr.variant_index.convert_into());
 
                 for field in &adt_expr.fields {
                     let field_expr = self.visit_expr_and_intern(&self.thir[field.expr]);
-                    self.filler.tables.register_thir_adt_field_expr(interned_adt_expr, field.name.convert_into(), field_expr);
+                    self.filler.tables.register_thir_adt_field_expr(
+                        interned_adt_expr,
+                        field.name.convert_into(),
+                        field_expr,
+                    );
                 }
 
                 (interned_adt_expr,)
@@ -415,11 +421,18 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             rustc_middle::thir::ExprKind::Closure(closure_expr) => {
                 let closure_def_id = self.filler.resolve_def_id(closure_expr.closure_id.into());
 
-                let (interned_closure_expr,) = self.filler.tables.register_thir_exprs_closure(closure_def_id, closure_expr.movability.convert_into());
+                let (interned_closure_expr,) = self.filler.tables.register_thir_exprs_closure(
+                    closure_def_id,
+                    closure_expr.movability.convert_into(),
+                );
 
                 for (i, upvar) in closure_expr.upvars.iter().enumerate() {
                     let interned_upvar = self.visit_expr_and_intern(&self.thir[*upvar]);
-                    self.filler.tables.register_thir_closure_upvars(interned_closure_expr, i.try_into().unwrap(), interned_upvar);
+                    self.filler.tables.register_thir_closure_upvars(
+                        interned_closure_expr,
+                        i.try_into().unwrap(),
+                        interned_upvar,
+                    );
                 }
 
                 (interned_closure_expr,)
@@ -437,10 +450,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             rustc_middle::thir::ExprKind::ZstLiteral { .. } => {
                 self.filler.tables.register_thir_exprs_zst_literal()
             }
-            rustc_middle::thir::ExprKind::NamedConst {
-                def_id,
-                ..
-            } => {
+            rustc_middle::thir::ExprKind::NamedConst { def_id, .. } => {
                 let interned_def_path = self.filler.resolve_def_id(*def_id);
                 self.filler
                     .tables
@@ -452,11 +462,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     .tables
                     .register_thir_exprs_const_param(interned_def_path)
             }
-            rustc_middle::thir::ExprKind::StaticRef {
-                ty,
-                def_id,
-                ..
-            } => {
+            rustc_middle::thir::ExprKind::StaticRef { ty, def_id, .. } => {
                 let interned_def_path = self.filler.resolve_def_id(*def_id);
                 let interned_ty = self.filler.register_type(*ty);
                 self.filler
@@ -496,7 +502,11 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
         interned_expr
     }
 
-    fn visit_stmt_and_intern(&mut self, stmt: &'thir rustc_middle::thir::Stmt, idx: usize) -> types::ThirStmt {
+    fn visit_stmt_and_intern(
+        &mut self,
+        stmt: &'thir rustc_middle::thir::Stmt,
+        idx: usize,
+    ) -> types::ThirStmt {
         let (interned_stmt,) = match &stmt.kind {
             rustc_middle::thir::StmtKind::Expr { expr, scope: _ } => {
                 let interned_expr = self.visit_expr_and_intern(&self.thir[*expr]);
@@ -515,18 +525,27 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 };
 
                 let interned_span = self.filler.register_span(*span);
-                
+
                 let interned_else_block = if let Some(else_block) = else_block {
                     self.visit_block_and_intern(&self.thir[*else_block])
                 } else {
                     self.filler.tables.get_no_thir_block()
                 };
 
-                self.filler.tables.register_thir_stmts_let(init_expr, interned_else_block, interned_span)
+                self.filler.tables.register_thir_stmts_let(
+                    init_expr,
+                    interned_else_block,
+                    interned_span,
+                )
             }
         };
 
-        self.filler.tables.register_thir_stmts(interned_stmt, self.current_block, self.closest_unsafe_block, idx.into());
+        self.filler.tables.register_thir_stmts(
+            interned_stmt,
+            self.current_block,
+            self.closest_unsafe_block,
+            idx.into(),
+        );
 
         interned_stmt
     }
@@ -566,7 +585,9 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
         }
         if let Some(expr) = block.expr {
             let interned_expr = self.visit_expr_and_intern(&self.thir[expr]);
-            self.filler.tables.register_thir_block_expr(the_block, interned_expr);
+            self.filler
+                .tables
+                .register_thir_block_expr(the_block, interned_expr);
         }
 
         // reset state
@@ -578,6 +599,5 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
 
     pub fn visit(&mut self) {
         self.visit_expr_and_intern(&self.thir[self.body_id]);
-
     }
 }
