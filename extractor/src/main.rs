@@ -66,7 +66,7 @@ fn main() {
                 "-Zalways-encode-mir",
                 "-Zmir-opt-level=0",
                 "-Cdebug-assertions=on",
-                "-Cincremental=on",
+                "-Cincremental=incremental",
             ]
             .iter()
             .map(ToString::to_string),

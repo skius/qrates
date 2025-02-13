@@ -4131,9 +4131,8 @@ checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 
 [[package]]
 name = "rustwide"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b30dbb924886da02ac71db6e47735294591f26465ae5ad61fcb2f3d67241de51"
+version = "0.18.0"
+source = "git+https://github.com/skius/rustwide?branch=rwfix18#91cd3ac5822b2cf5e9b522d04cfb74a03b9f7592"
 dependencies = [
  "anyhow",
  "attohttpc",
