@@ -484,13 +484,14 @@ relation function_parameter_types(function: Item, index: FnParamIndex, typ: Type
 relation function_unsafe_use(def_path: DefPath, uses_unsafe: bool);
 relation function_unsafe_reasons(def_path: DefPath, index: u32, reason: InternedString);
 
-// new relations from mir-to-thir migration
 /// THIR body expressions
 relation thir_bodies(item: Item, def_path: DefPath, body: auto ThirBlock);
 /// THIR-level block information
 relation thir_blocks(parent: ThirBlock, block: auto ThirBlock, safety: ScopeSafety, check_mode: BlockCheckMode, span: Span);
 
 // thir stmts
+// The closest unsafe block is the closest outer block that is unsafe. This should be used to
+// compute metrics such as "the average size of an unsafe block".
 relation thir_stmts(stmt: ThirStmt, block: ThirBlock, closest_unsafe_block: ThirBlock, index: StatementIndex);
 relation thir_stmts_expr(stmt: auto ThirStmt, expr: ThirExpr);
 relation thir_stmts_let(stmt: auto ThirStmt, initializer: ThirExpr, else_block: ThirBlock, span: Span);
