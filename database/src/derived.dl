@@ -117,6 +117,7 @@ relation functions_unsafe_thir_blocks(
     expansion_kind: SpanExpansionKind, check_mode: BlockCheckMode);
 
 /// Information about function size in terms of THIR statements.
+/// The statement counts *include* trailing expressions in blocks.
 relation selected_function_thir_sizes(
     build: Build, item: Item, def_path: DefPath,
     visibility: TyVisibility, unsafety: Safety, abi: Abi,

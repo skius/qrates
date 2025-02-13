@@ -510,11 +510,7 @@ impl<'a, 'b, 'tcx> MirVisitor<'a, 'b, 'tcx> {
                 };
                 "Call"
             }
-            mir::TerminatorKind::TailCall {
-                ..
-            } => {
-                "TailCall"
-            }
+            mir::TerminatorKind::TailCall { .. } => "TailCall",
             mir::TerminatorKind::Assert {
                 cond,
                 expected,

@@ -44,21 +44,33 @@ impl ConvertInto<types::SpanExpansionKind> for rustc_span::hygiene::ExpnKind {
             EK::Macro(MacroKind::Derive, _) => types::SpanExpansionKind::MacroDerive,
             EK::AstPass(AstPass::StdImports) => types::SpanExpansionKind::AstPassStdImports,
             EK::AstPass(AstPass::TestHarness) => types::SpanExpansionKind::AstPassTestHarness,
-            EK::AstPass(AstPass::ProcMacroHarness) => types::SpanExpansionKind::AstPassProcMacroHarness,
+            EK::AstPass(AstPass::ProcMacroHarness) => {
+                types::SpanExpansionKind::AstPassProcMacroHarness
+            }
             EK::Desugaring(DesugaringKind::CondTemporary) => {
                 types::SpanExpansionKind::DesugaringCondTemporary
             }
             EK::Desugaring(DesugaringKind::QuestionMark) => {
                 types::SpanExpansionKind::DesugaringQuestionMark
             }
-            EK::Desugaring(DesugaringKind::TryBlock) => types::SpanExpansionKind::DesugaringTryBlock,
-            EK::Desugaring(DesugaringKind::OpaqueTy) => types::SpanExpansionKind::DesugaringOpaqueTy,
+            EK::Desugaring(DesugaringKind::TryBlock) => {
+                types::SpanExpansionKind::DesugaringTryBlock
+            }
+            EK::Desugaring(DesugaringKind::OpaqueTy) => {
+                types::SpanExpansionKind::DesugaringOpaqueTy
+            }
             EK::Desugaring(DesugaringKind::Async) => types::SpanExpansionKind::DesugaringAsync,
             EK::Desugaring(DesugaringKind::Await) => types::SpanExpansionKind::DesugaringAwait,
             EK::Desugaring(DesugaringKind::ForLoop) => types::SpanExpansionKind::DesugaringForLoop,
-            EK::Desugaring(DesugaringKind::WhileLoop) => types::SpanExpansionKind::DesugaringWhileLoop,
-            EK::Desugaring(DesugaringKind::YeetExpr) => types::SpanExpansionKind::DesugaringYeetExpr,
-            EK::Desugaring(DesugaringKind::BoundModifier) => types::SpanExpansionKind::DesugaringYeetExpr,
+            EK::Desugaring(DesugaringKind::WhileLoop) => {
+                types::SpanExpansionKind::DesugaringWhileLoop
+            }
+            EK::Desugaring(DesugaringKind::YeetExpr) => {
+                types::SpanExpansionKind::DesugaringYeetExpr
+            }
+            EK::Desugaring(DesugaringKind::BoundModifier) => {
+                types::SpanExpansionKind::DesugaringYeetExpr
+            }
         }
     }
 }
@@ -99,13 +111,11 @@ impl ConvertInto<types::BorrowKind> for mir::BorrowKind {
             mir::BorrowKind::Shared => types::BorrowKind::Shared,
             mir::BorrowKind::Fake(mir::FakeBorrowKind::Shallow) => types::BorrowKind::Shallow,
             mir::BorrowKind::Fake(mir::FakeBorrowKind::Deep) => types::BorrowKind::Deep,
-            mir::BorrowKind::Mut { kind } => {
-                match kind {
-                    mir::MutBorrowKind::Default => types::BorrowKind::Mut,
-                    mir::MutBorrowKind::TwoPhaseBorrow => types::BorrowKind::MutTwoPhase,
-                    mir::MutBorrowKind::ClosureCapture => types::BorrowKind::ClosureCapture,
-                }
-            }
+            mir::BorrowKind::Mut { kind } => match kind {
+                mir::MutBorrowKind::Default => types::BorrowKind::Mut,
+                mir::MutBorrowKind::TwoPhaseBorrow => types::BorrowKind::MutTwoPhase,
+                mir::MutBorrowKind::ClosureCapture => types::BorrowKind::ClosureCapture,
+            },
         }
     }
 }

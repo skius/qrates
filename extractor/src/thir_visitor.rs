@@ -1,5 +1,5 @@
 use crate::{converters::ConvertInto, utils::pretty_description};
-use corpus_database::types::{self, ThirBlock, Safety};
+use corpus_database::types::{self, Safety, ThirBlock};
 use rustc_hir as hir;
 use rustc_middle::{
     thir::{ExprId, Thir},
