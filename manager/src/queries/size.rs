@@ -100,31 +100,25 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
 
     let unsafe_thir_blocks_sizes_by_stmts_map: HashMap<ThirBlock, usize> = unsafe_thir_blocks_sizes_by_stmts.iter().map(|(build, block, check_mode, statement_count)| (**block, *statement_count)).collect();
 
-    // TODO: expressions in thir would be a good metrics too
-
-    // TODO: don't have terminators in thir (yet)
-
-    // TODO (2025-02-08): terminators by counting Call exprs, and also make statement_count + 1 by also counting the
-    // block's expression, if it exists.
-    // Add call_expr_count as well. count both inside statements and inside the block's expression.
-
-    // actually: let's do
-    // - has_trailing_expr: bool
-    // - call_expr_count: usize
-
     let NO_THIR_EXPR = 0u64.into();
-    let block_to_has_trailing_expr: HashMap<ThirBlock, bool> = loader.load_thir_block_expr().iter().map(|(block, expr)| (*block, *expr != NO_THIR_EXPR)).collect();
 
-    // let unsafe_thir_block_call_expr_sizes = loader.load_thir_exprs().iter().filter(|(expr, block, ty, span)| {
+    let closest_unsafe_block_trailing_expr;
+    datapond_query! {
+        load loader {
+            relations(thir_block_expr, thir_exprs),
+        }
+        output closest_unsafe_block_trailing_expr(
+            closest_unsafe_block: ThirBlock,
+            expr: ThirExpr,
+        )
 
-    // })
-
-    let mut v = vec![];
-    for i in 0..10000 {
-        v.push([0u8 ;3]);
+        closest_unsafe_block_trailing_expr(closest_unsafe_block, expr) :- 
+            thir_block_expr(.expr=expr), 
+            thir_exprs(.expr=expr, .closest_unsafe_block=closest_unsafe_block).
     }
-    Box::leak(Box::new(v));
 
+    let unsafe_block_to_count_trailing_expr: HashMap<ThirBlock, usize> = closest_unsafe_block_trailing_expr.elements.iter().filter(|(block, expr)| *expr != NO_THIR_EXPR).safe_group_by(|(block, _expr)| *block).into_iter().map(|(block, group)| (block, group.count())).collect();
+    
     let blocks_and_call_exprs;
     datapond_query! {
         load loader {
@@ -137,7 +131,7 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
         )
 
         blocks_and_call_exprs(block, expr) :- thir_exprs_call(.expr=expr),
-            thir_exprs(.expr=expr, .block=block).
+            thir_exprs(.expr=expr, .closest_unsafe_block=block).
 
     };
 
@@ -159,7 +153,7 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
                 check_mode.to_string(),
                 unsafe_thir_blocks_sizes_by_stmts_map.get(&block).copied().unwrap_or(0),
                 unsafe_thir_blocks_to_call_expr_count.get(&block).copied().unwrap_or(0),
-                block_to_has_trailing_expr.get(&block).copied().unwrap_or(false),
+                unsafe_block_to_count_trailing_expr.get(&block).copied().unwrap_or(0),
             )
         },
     );

@@ -342,14 +342,14 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
     let thir_statements = loader.load_thir_stmts();
     let unsafe_thir_statements: Vec<_> = thir_statements
         .iter()
-        .flat_map(|&(stmt, block, index)| {
+        .flat_map(|&(stmt, _block, closest_unsafe_block, index)| {
             unsafe_thir_blocks_relation
                 .iter()
                 .filter(move |&(build, _thir_body_def_path, unsafe_block, _expansion_kind, _check_mode, _span)| {
-                    *unsafe_block == block
+                    *unsafe_block == closest_unsafe_block
                 })
                 .map(move |&(build, _thir_body_def_path, _unsafe_block, _expansion_kind, check_mode, span)| {
-                    (build, stmt, block, index, check_mode)
+                    (build, stmt, closest_unsafe_block, index, check_mode)
                 })
         })
         .collect();
@@ -358,14 +358,6 @@ pub fn new_query(loader: &Loader, report_path: &Path) {
     info!("Saved unsafe thir statements.");
     write_csv!(report_path, unsafe_thir_statements);
     info!("Saved unsafe thir statement report.");
-
-    // store thir stmts
-    // TODO: delete. unneeded
-    // let thir_stmts = loader.load_thir_stmts();
-    // write_csv!(report_path, thir_stmts.clone());
-
-    // TODO: don't have terminators right now in thir
-
 
     let functions_unsafe_thir_blocks;
     datapond_query! {

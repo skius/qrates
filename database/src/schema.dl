@@ -492,7 +492,7 @@ relation thir_bodies(item: Item, def_path: DefPath, body: auto ThirBlock);
 relation thir_blocks(parent: ThirBlock, block: auto ThirBlock, safety: ScopeSafety, check_mode: BlockCheckMode, span: Span);
 
 // thir stmts
-relation thir_stmts(stmt: ThirStmt, block: ThirBlock, index: StatementIndex);
+relation thir_stmts(stmt: ThirStmt, block: ThirBlock, closest_unsafe_block: ThirBlock, index: StatementIndex);
 relation thir_stmts_expr(stmt: auto ThirStmt, expr: ThirExpr);
 relation thir_stmts_let(stmt: auto ThirStmt, initializer: ThirExpr, else_block: ThirBlock, span: Span);
 
@@ -500,7 +500,7 @@ relation thir_stmts_let(stmt: auto ThirStmt, initializer: ThirExpr, else_block: 
 relation thir_block_expr(block: ThirBlock, expr: ThirExpr);
 
 // thir expressions
-relation thir_exprs(expr: ThirExpr, block: ThirBlock, ty: Type, span: Span);
+relation thir_exprs(expr: ThirExpr, block: ThirBlock, closest_unsafe_block: ThirBlock, ty: Type, span: Span);
 relation thir_exprs_scope(expr: auto ThirExpr, inner: ThirExpr);
 relation thir_exprs_box(expr: auto ThirExpr, inner: ThirExpr);
 relation thir_exprs_if(expr: auto ThirExpr, cond: ThirExpr, then_expr: ThirExpr, else_expr: ThirExpr);

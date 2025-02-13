@@ -4,6 +4,7 @@ use super::utils::{BuildResolver, DefPathResolver};
 use crate::write_csv;
 use corpus_database::types::ThirExpr;
 use corpus_database::{tables::Loader, types};
+use corpus_queries_derive::datapond_query;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -215,6 +216,7 @@ pub fn query(loader: &Loader, report_path: &Path) {
 // Compute the derived relations `selected_function_thir_sizes` and
 // `selected_build_thir_sizes`.
 fn new_collect_function_sizes(loader: &Loader) {
+    // block to associated data mapping
     let function_thir_blocks: HashMap<_, _> = {
         let selected_blocks = loader.load_selected_thir_blocks();
         selected_blocks
@@ -280,9 +282,9 @@ fn new_collect_function_sizes(loader: &Loader) {
     let mut selected_function_thir_sizes_map: HashMap<_, (u64, u64, u64)> = HashMap::new();
     let mut selected_build_thir_sizes_map: HashMap<_, (u64, u64, u64)> = HashMap::new();
 
-    for (_stmt, block, _index) in loader.load_thir_stmts().iter() {
+    for (_stmt, block, closest_unsafe_block, _index) in loader.load_thir_stmts().iter() {
         if let Some(&(build, thir_body_def_path, safety, check_mode)) =
-            function_thir_blocks.get(block)
+            function_thir_blocks.get(closest_unsafe_block).or(function_thir_blocks.get(block)) // For sizes of safe blocks
         {
             {
                 let (build_stmt, build_unsafe_stmt, build_user_unsafe_stmt) =
@@ -317,12 +319,27 @@ fn new_collect_function_sizes(loader: &Loader) {
 
     // count a block's trailing expression as statement as well
     let no_thir_expr: ThirExpr = 0u64.into();
-    for &(block, expr) in loader.load_thir_block_expr().iter() {
+    let thir_block_expr_and_closest_unsafe;
+    datapond_query! {
+        load loader {
+            relations(thir_block_expr, thir_exprs),
+        }
+        output thir_block_expr_and_closest_unsafe(
+            block: ThirBlock,
+            expr: ThirExpr,
+            closest_unsafe_block: ThirBlock,
+        )
+
+        thir_block_expr_and_closest_unsafe(block, expr, closest_unsafe_block) :- 
+            thir_block_expr(block, expr), 
+            thir_exprs(.expr=expr, .closest_unsafe_block=closest_unsafe_block).
+    }
+    for &(block, expr, closest_unsafe_block) in thir_block_expr_and_closest_unsafe.elements.iter() {
         if expr == no_thir_expr {
             continue;
         }
 
-        if let Some(&(build, thir_body_def_path, safety, check_mode)) = function_thir_blocks.get(&block) {
+        if let Some(&(build, thir_body_def_path, safety, check_mode)) = function_thir_blocks.get(&closest_unsafe_block).or(function_thir_blocks.get(&block)) {
             {
                 let (build_stmt, build_unsafe_stmt, build_user_unsafe_stmt) =
                     selected_build_thir_sizes_map.entry(build).or_default();
@@ -396,12 +413,6 @@ fn new_collect_function_sizes(loader: &Loader) {
             },
         )
         .collect();
-
-    let mut v = vec![];
-    for i in 0..10000 {
-        v.push([0u8 ;3]);
-    }
-    Box::leak(Box::new(v));
 
     loader.store_selected_function_thir_sizes(selected_function_thir_sizes);
 }

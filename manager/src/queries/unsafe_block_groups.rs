@@ -234,7 +234,7 @@ fn new_count_called_functions(loader: &Loader) {
         ) :-
             unsafe_thir_blocks(
                 .build=build, .block=block, .check_mode=check_mode),
-            thir_exprs(.block=block, .expr=call),
+            thir_exprs(.closest_unsafe_block=block, .expr=call),
             thir_exprs_call(
                 .expr=call, .fun=fun, .unsafety=unsafety,
                 .abi=abi, .return_ty=return_ty).   
