@@ -284,7 +284,7 @@ enum BorrowKind {
     Shared,
     Shallow,
     Deep,
-    Unique,
+    ClosureCapture,
     Mut,
     MutTwoPhase,
 }
@@ -343,7 +343,7 @@ enum SpanExpansionKind {
     /// Desugaring done by the compiler during HIR lowering.
     DesugaringYeetExpr,
     /// Desugaring done by the compiler during HIR lowering.
-    DesugaringReplace,
+    DesugaringBoundModifier,
     /// Inlined MIR.
     Inlined,
 }
