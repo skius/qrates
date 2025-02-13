@@ -189,10 +189,6 @@ pub fn analyse<'tcx>(compiler: &Compiler, queries: &'tcx Queries<'tcx>) {
 }
 
 pub fn override_queries(_session: &Session, providers: &mut rustc_middle::util::Providers) {
-    // TODO - skius(2): Check if entire unsafety_check_result override can really be disabled. Seems like it was disabled.
-    //     providers.queries.check_unsafety = unsafety_check_result;
-    //     // providers.unsafety_check_result_for_const_arg = unsafety_check_result_for_const_arg;
-
     providers.queries.thir_body = |tcx, def_id| {
         let mut providers = rustc_middle::util::Providers::default();
         rustc_mir_build::provide(&mut providers);
@@ -206,6 +202,10 @@ pub fn override_queries(_session: &Session, providers: &mut rustc_middle::util::
 
         Ok((steal, expr_id))
     };
+
+    // FIXME: No 'function unsafe use' and 'function unsafe reasons' are being registered.
+    // Unsafe reasons have moved to `check_unsafety.rs`'s `UnsafetyVisitor` into the `UnsafeOpKind` enum. This
+    // is not exposed to us.
 }
 
 // fn unsafety_check_result<'tcx>(

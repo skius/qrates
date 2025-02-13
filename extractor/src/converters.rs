@@ -286,7 +286,7 @@ impl ConvertInto<types::MatchSource> for rustc_hir::MatchSource {
             rustc_hir::MatchSource::Normal => types::MatchSource::Normal,
             rustc_hir::MatchSource::Postfix => types::MatchSource::Postfix,
             rustc_hir::MatchSource::ForLoopDesugar => types::MatchSource::ForLoopDesugar,
-            rustc_hir::MatchSource::TryDesugar(hir_id) => types::MatchSource::TryDesugar,
+            rustc_hir::MatchSource::TryDesugar(_) => types::MatchSource::TryDesugar,
             rustc_hir::MatchSource::AwaitDesugar => types::MatchSource::AwaitDesugar,
             rustc_hir::MatchSource::FormatArgs => types::MatchSource::FormatArgs,
         }

@@ -119,7 +119,6 @@ fn append_mangled_type<'tcx>(str: &mut String, ty: Ty<'tcx>, tcx: TyCtxt<'tcx>) 
         }
         TyKind::Float(float_ty) => {
             str.push_str(match float_ty {
-                // TODO - skius(2): Add F16/F128 downstream
                 ty::FloatTy::F16 => "f16",
                 ty::FloatTy::F32 => "f32",
                 ty::FloatTy::F64 => "f64",
