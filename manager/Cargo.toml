@@ -42,9 +42,6 @@ csv = "1.1"
 itertools = "0.10"
 tempfile = "3.3.0"
 
-# For profiling: export MALLOC_CONF="prof:true,prof_active:true,lg_prof_sample:20,prof_final:true"
-tikv-jemallocator = { version = "0.6", features = ["profiling", "unprefixed_malloc_on_supported_platforms", "stats" ] }
-
 [dependencies.chrono]
 version = "0.4"
 default-features = false

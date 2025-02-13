@@ -7,12 +7,6 @@ use std::path::PathBuf;
 use std::time::Duration;
 use structopt::StructOpt;
 
-// main.rs
-use tikv_jemallocator::Jemalloc;
-
-#[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
-
 #[derive(StructOpt)]
 #[structopt(
     name = "corpus-manager",
