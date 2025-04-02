@@ -21,18 +21,19 @@ extern crate rustc_target;
 
 mod converters;
 mod hir_visitor;
-mod mir_visitor;
+// mir visitor disabled due to not being used anymore
+// mod mir_visitor;
 mod mirai_utils;
 mod table_filler;
 mod thir_storage;
 mod thir_visitor;
 mod utils;
 
+use corpus_database::set_disk_map_temp_dir_root;
 use lazy_static::lazy_static;
 use rustc_data_structures::fx::FxIndexSet;
 use rustc_hir::def_id::DefId;
 use rustc_interface::interface::Compiler;
-use rustc_interface::Queries;
 use rustc_middle::query::Providers;
 use rustc_middle::ty::TyCtxt;
 use rustc_session::Session;
@@ -63,6 +64,17 @@ lazy_static! {
 fn analyse_with_tcx(name: String, tcx: TyCtxt, session: &Session) {
     let hash = tcx.crate_hash(rustc_hir::def_id::LOCAL_CRATE);
     let file_name = format!("{}_{}", name, hash.to_string());
+
+    let mut path = if let Ok(results_dir_path) = std::env::var("CORPUS_RESULTS_DIR") {
+        results_dir_path.into()
+    } else {
+        let mut path: PathBuf = std::env::var("CARGO_TARGET_DIR").unwrap().into();
+        path.push("rust-corpus");
+        path
+    };
+    std::fs::create_dir_all(&path).unwrap();
+    path.push(file_name);
+
     let cargo_pkg_version = std::env::var("CARGO_PKG_VERSION").unwrap();
     let cargo_pkg_name = std::env::var("CARGO_PKG_NAME").unwrap();
     let mut tables = corpus_database::tables::Tables::default();
@@ -155,16 +167,6 @@ fn analyse_with_tcx(name: String, tcx: TyCtxt, session: &Session) {
     }
 
     let tables = filler.tables;
-    let mut path = if let Ok(results_dir_path) = std::env::var("CORPUS_RESULTS_DIR") {
-        results_dir_path.into()
-    } else {
-        let mut path: PathBuf = std::env::var("CARGO_TARGET_DIR").unwrap().into();
-        path.push("rust-corpus");
-        path
-    };
-    std::fs::create_dir_all(&path).unwrap();
-    path.push(file_name);
-
     if Some("true")
         == std::env::var("CORPUS_OUTPUT_JSON")
             .ok()
@@ -176,16 +178,14 @@ fn analyse_with_tcx(name: String, tcx: TyCtxt, session: &Session) {
     tables.save_bincode(path);
 }
 
-pub fn analyse<'tcx>(compiler: &Compiler, queries: &'tcx Queries<'tcx>) {
+pub fn analyse<'tcx>(compiler: &Compiler, tcx: TyCtxt<'tcx>) {
     let session = &compiler.sess;
-    queries.global_ctxt().unwrap().enter(|tcx| {
-        let name = tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).to_string();
-        assert!(
-            name != "rust_out",
-            "Why this crate has such a strange name?"
-        );
-        analyse_with_tcx(name, tcx, session);
-    });
+    let name = tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).to_string();
+    assert!(
+        name != "rust_out",
+        "Why this crate has such a strange name?"
+    );
+    analyse_with_tcx(name, tcx, session);
 }
 
 pub fn override_queries(_session: &Session, providers: &mut rustc_middle::util::Providers) {
@@ -197,8 +197,8 @@ pub fn override_queries(_session: &Session, providers: &mut rustc_middle::util::
         let Ok((steal, expr_id)) = body else {
             return body;
         };
-        let thir_clone = steal.borrow().clone();
-        unsafe { thir_storage::store_thir_body(tcx, def_id, thir_clone, expr_id) };
+        let thir_clone = steal.borrow();
+        unsafe { thir_storage::store_thir_body(tcx, def_id, thir_clone.clone(), expr_id) };
 
         Ok((steal, expr_id))
     };

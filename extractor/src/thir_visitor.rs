@@ -2,8 +2,8 @@ use crate::{converters::ConvertInto, utils::pretty_description};
 use corpus_database::types::{self, Safety, ThirBlock};
 use rustc_hir as hir;
 use rustc_middle::{
-    thir::{ExprId, Thir},
-    ty::{self, TyCtxt},
+    thir::{AdtExprBase, ExprId, Thir},
+    ty::{self, TyCtxt, UpvarArgs},
 };
 
 use crate::table_filler::TableFiller;
@@ -14,6 +14,7 @@ pub(crate) struct ThirVisitor<'a, 'b, 'thir, 'tcx> {
     body_id: ExprId,
     current_block: ThirBlock,
     closest_unsafe_block: ThirBlock,
+    root_block: ThirBlock,
     filler: &'a mut TableFiller<'b, 'tcx>,
 }
 
@@ -31,6 +32,7 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             body_id,
             current_block: root_block,
             closest_unsafe_block: filler.tables.get_no_thir_block(),
+            root_block,
             filler,
         }
     }
@@ -115,6 +117,17 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                         i.try_into().unwrap(),
                         interned_arg,
                     );
+                }
+
+                let top_foreign_macro = expr
+                    .span
+                    .macro_backtrace()
+                    .flat_map(|element| element.macro_def_id)
+                    .filter(|macro_def| macro_def.krate != hir::def_id::LOCAL_CRATE)
+                    .last();
+                if let Some(def_id) = top_foreign_macro {
+                    let desc = pretty_description(self.tcx, def_id, &[]);
+                    self.filler.tables.register_thir_exprs_call_macro_backtrace(interned_fun, desc.path);
                 }
 
                 match ty.kind() {
@@ -368,10 +381,12 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 (interned_tuple_expr,)
             }
             rustc_middle::thir::ExprKind::Adt(adt_expr) => {
-                let base = if let Some(base) = &adt_expr.base {
-                    self.visit_expr_and_intern(&self.thir[base.base])
-                } else {
-                    self.filler.tables.get_no_thir_expr()
+                let base = match &adt_expr.base {
+                    AdtExprBase::None => self.filler.tables.get_no_thir_expr(),
+                    AdtExprBase::Base(base) => self.visit_expr_and_intern(&self.thir[base.base]),
+                    AdtExprBase::DefaultFields(default_fields) => {
+                        self.filler.tables.get_no_thir_expr()
+                    }
                 };
 
                 let (interned_adt_expr,) = self
@@ -425,6 +440,18 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                     closure_def_id,
                     closure_expr.movability.convert_into(),
                 );
+
+                // Special casing getting the closure kind
+                match closure_expr.args {
+                    UpvarArgs::Closure(generic_args) => {
+                        let kind = generic_args.as_closure().kind();
+                        self.filler.tables.register_thir_exprs_closure_kind(
+                            interned_closure_expr,
+                            kind.convert_into(),
+                        );
+                    }
+                    _ => {}
+                }
 
                 for (i, upvar) in closure_expr.upvars.iter().enumerate() {
                     let interned_upvar = self.visit_expr_and_intern(&self.thir[*upvar]);
@@ -488,6 +515,24 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
                 let interned_value = self.visit_expr_and_intern(&self.thir[*value]);
                 self.filler.tables.register_thir_exprs_yield(interned_value)
             }
+            rustc_middle::thir::ExprKind::PlaceUnwrapUnsafeBinder { source } => {
+                let source = self.visit_expr_and_intern(&self.thir[*source]);
+                self.filler
+                    .tables
+                    .register_thir_exprs_place_unwrap_unsafe_binder(source)
+            }
+            rustc_middle::thir::ExprKind::WrapUnsafeBinder { source } => {
+                let source = self.visit_expr_and_intern(&self.thir[*source]);
+                self.filler
+                    .tables
+                    .register_thir_exprs_wrap_unsafe_binder(source)
+            }
+            rustc_middle::thir::ExprKind::ValueUnwrapUnsafeBinder { source } => {
+                let source = self.visit_expr_and_intern(&self.thir[*source]);
+                self.filler
+                    .tables
+                    .register_thir_exprs_value_unwrap_unsafe_binder(source)
+            }
         };
 
         let interned_span = self.filler.register_span(expr.span);
@@ -498,6 +543,8 @@ impl<'a, 'b, 'thir, 'tcx: 'thir> ThirVisitor<'a, 'b, 'thir, 'tcx> {
             interned_expr_type,
             interned_span,
         );
+
+        self.filler.tables.register_thir_exprs_to_thir_body(interned_expr, self.root_block);
 
         interned_expr
     }

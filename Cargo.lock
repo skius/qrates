@@ -698,6 +698,7 @@ dependencies = [
  "corpus-database-dsl",
  "log",
  "rand",
+ "redb",
  "serde",
  "serde_derive",
  "serde_json",
@@ -3276,7 +3277,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.0",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -3953,6 +3954,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "redb"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea0a72cd7140de9fc3e318823b883abf819c20d478ec89ce880466dc2ef263c6"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4131,8 +4141,8 @@ checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
 
 [[package]]
 name = "rustwide"
-version = "0.18.0"
-source = "git+https://github.com/skius/rustwide?branch=rwfix18#91cd3ac5822b2cf5e9b522d04cfb74a03b9f7592"
+version = "0.19.1"
+source = "git+https://github.com/skius/rustwide-fork?branch=master#a47f23c0ed9b8ef1eed21804d4eed3895c1574e3"
 dependencies = [
  "anyhow",
  "attohttpc",

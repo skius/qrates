@@ -9,6 +9,9 @@ use rustc_middle::{
     ty::{self, adjustment::PointerCoercion},
 };
 
+extern crate rustc_abi;
+extern crate rustc_type_ir;
+
 pub trait ConvertInto<T> {
     fn convert_into(&self) -> T;
 }
@@ -27,6 +30,15 @@ impl ConvertInto<types::Safety> for hir::Safety {
         match self {
             hir::Safety::Unsafe => types::Safety::Unsafe,
             hir::Safety::Safe => types::Safety::Safe,
+        }
+    }
+}
+
+impl ConvertInto<types::Safety> for hir::HeaderSafety {
+    fn convert_into(&self) -> types::Safety {
+        match self {
+            hir::HeaderSafety::SafeTargetFeatures => types::Safety::SafeTargetFeatures,
+            hir::HeaderSafety::Normal(safety) => safety.convert_into(),
         }
     }
 }
@@ -70,7 +82,10 @@ impl ConvertInto<types::SpanExpansionKind> for rustc_span::hygiene::ExpnKind {
             }
             EK::Desugaring(DesugaringKind::BoundModifier) => {
                 types::SpanExpansionKind::DesugaringYeetExpr
-            }
+            } // for future rust:
+              // EK::Desugaring(DesugaringKind::Contract) => {
+              //     types::SpanExpansionKind::DesugaringContract
+              // }
         }
     }
 }
@@ -168,20 +183,17 @@ impl<'tcx> ConvertInto<types::AggregateKind> for mir::AggregateKind<'tcx> {
     }
 }
 
-// TODO - mir deletion: Rename ScopeSafety and 'scope' references to blocks
-impl ConvertInto<types::ScopeSafety> for Option<rustc_middle::thir::BlockSafety> {
-    fn convert_into(&self) -> types::ScopeSafety {
+impl ConvertInto<types::BlockSafety> for Option<rustc_middle::thir::BlockSafety> {
+    fn convert_into(&self) -> types::BlockSafety {
         match self {
-            Some(rustc_middle::thir::BlockSafety::Safe) => types::ScopeSafety::Safe,
+            Some(rustc_middle::thir::BlockSafety::Safe) => types::BlockSafety::Safe,
             Some(rustc_middle::thir::BlockSafety::BuiltinUnsafe) => {
-                types::ScopeSafety::BuiltinUnsafe
+                types::BlockSafety::BuiltinUnsafe
             }
-            // TODO - mir deletion: Remove FnUnsafe downstream
-            // Some(rustc_middle::thir::BlockSafety::FnUnsafe) => types::ScopeSafety::FnUnsafe,
             Some(rustc_middle::thir::BlockSafety::ExplicitUnsafe(_)) => {
-                types::ScopeSafety::ExplicitUnsafe
+                types::BlockSafety::ExplicitUnsafe
             }
-            None => types::ScopeSafety::Unknown,
+            None => types::BlockSafety::Unknown,
         }
     }
 }
@@ -264,13 +276,13 @@ impl ConvertInto<types::AdtKind> for ty::AdtKind {
     }
 }
 
-impl ConvertInto<types::AdtVariantIndex> for rustc_target::abi::VariantIdx {
+impl ConvertInto<types::AdtVariantIndex> for rustc_abi::VariantIdx {
     fn convert_into(&self) -> types::AdtVariantIndex {
         self.index().into()
     }
 }
 
-impl ConvertInto<types::FieldIndex> for rustc_target::abi::FieldIdx {
+impl ConvertInto<types::FieldIndex> for rustc_abi::FieldIdx {
     fn convert_into(&self) -> types::FieldIndex {
         self.index().into()
     }
@@ -325,6 +337,16 @@ impl ConvertInto<types::Movability> for Option<rustc_ast::Movability> {
             Some(rustc_ast::Movability::Static) => types::Movability::Static,
             Some(rustc_ast::Movability::Movable) => types::Movability::Movable,
             None => types::Movability::None,
+        }
+    }
+}
+
+impl ConvertInto<types::ClosureKind> for rustc_type_ir::ClosureKind {
+    fn convert_into(&self) -> types::ClosureKind {
+        match self {
+            rustc_type_ir::ClosureKind::Fn => types::ClosureKind::Fn,
+            rustc_type_ir::ClosureKind::FnMut => types::ClosureKind::FnMut,
+            rustc_type_ir::ClosureKind::FnOnce => types::ClosureKind::FnOnce,
         }
     }
 }

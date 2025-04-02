@@ -49,12 +49,6 @@ inc_id ThirStmt: u64 {
 
 /// The hash of the crate as reported by the compiler.
 custom_id CrateHash: u128 {
-    impl From<u128> for CrateHash {
-        fn from(value: u128) -> Self {
-            Self(value)
-        }
-    }
-
     impl std::fmt::LowerHex for CrateHash {
         fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
             write!(f, "{:x}", self.0)
@@ -62,15 +56,10 @@ custom_id CrateHash: u128 {
     }
 }
 
-custom_id DefPathHash: (u64, u64) {
-    impl From<(u64, u64)> for DefPathHash {
-        fn from(value: (u64, u64)) -> Self {
-            Self(value)
-        }
-    }
+custom_id DefPathHash: u128 {
     impl std::fmt::LowerHex for DefPathHash {
         fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(f, "{:x}{:x}", (self.0).0, (self.0).1)
+            write!(f, "{:x}", self.0)
         }
     }
 }
@@ -135,6 +124,8 @@ enum TyVisibility {
 enum Safety {
     Unsafe,
     Safe,
+    // From HeaderSafety::SafeTargetFeatures
+    SafeTargetFeatures,
     /// Failed to obtain unsafety information from the compiler.
     ///
     /// TODO: For closures we could check if that closure is declared inside an unsafe block.
@@ -153,15 +144,13 @@ enum ImplPolarity {
     Unknown,
 }
 
-/// The safety of a scope.
-enum ScopeSafety {
-    /// The scope is safe.
+/// The safety of a THIR block.
+enum BlockSafety {
+    /// The block is safe.
     Safe,
-    /// The scope is unsafe because of a PushUnsafeBlock.
+    /// The block is unsafe because of the compiler.
     BuiltinUnsafe,
-    /// The scope is unsafe because it is inside an unsafe function.
-    FnUnsafe,
-    /// The scope is unsafe because it is inside an unsafe block.
+    /// The block is unsafe because the user annotated it so.
     ExplicitUnsafe,
     /// Failed to obtain the safety information from the compiler.
     #[default]
@@ -343,6 +332,8 @@ enum SpanExpansionKind {
     DesugaringYeetExpr,
     /// Desugaring done by the compiler during HIR lowering.
     DesugaringBoundModifier,
+    /// Desugaring done by the compiler during HIR lowering.
+    DesugaringContract,
     /// Inlined MIR.
     Inlined,
 }
@@ -414,6 +405,14 @@ enum LitKind {
     Bool,
     Err,
 }
+/// rustc_type_ir::ClosureKind
+enum ClosureKind {
+    #[default]
+    Unknown,
+    Fn,
+    FnMut,
+    FnOnce,
+}
 
 // Interning tables.
 
@@ -466,7 +465,7 @@ intern thir_unary_op_kind<InternedString as ThirUnOp<u8>>;
 
 // Relations.
 
-relation def_path_span(def_path: DefPath, span: Span);
+relation def_path_span(def_path: DefPath, span: Span) keyed by def_path;
 relation type_description(ty: Type, description: InternedString, generics: InternedString);
 /// The crate types associated with the build.
 relation build_crate_types(build: Build, crate_type: InternedString);
@@ -485,9 +484,9 @@ relation function_unsafe_use(def_path: DefPath, uses_unsafe: bool);
 relation function_unsafe_reasons(def_path: DefPath, index: u32, reason: InternedString);
 
 /// THIR body expressions
-relation thir_bodies(item: Item, def_path: DefPath, body: auto ThirBlock);
+relation thir_bodies(item: Item, def_path: DefPath, body: auto ThirBlock) keyed by body;
 /// THIR-level block information
-relation thir_blocks(parent: ThirBlock, block: auto ThirBlock, safety: ScopeSafety, check_mode: BlockCheckMode, span: Span);
+relation thir_blocks(parent: ThirBlock, block: auto ThirBlock, safety: BlockSafety, check_mode: BlockCheckMode, span: Span) keyed by block;
 
 // thir stmts
 // The closest unsafe block is the closest outer block that is unsafe. This should be used to
@@ -497,7 +496,12 @@ relation thir_stmts_expr(stmt: auto ThirStmt, expr: ThirExpr);
 relation thir_stmts_let(stmt: auto ThirStmt, initializer: ThirExpr, else_block: ThirBlock, span: Span);
 
 // link a block's expression to its parent block
-relation thir_block_expr(block: ThirBlock, expr: ThirExpr);
+relation thir_block_expr(block: ThirBlock, expr: ThirExpr) keyed by expr;
+
+// link an expression to the thir body its contained in
+// expr is a foreign key into `thir_exprs`
+// body is a foreign key into `thir_bodies`
+relation thir_exprs_to_thir_body(expr: ThirExpr, body: ThirBlock) keyed by expr;
 
 // thir expressions
 relation thir_exprs(expr: ThirExpr, block: ThirBlock, closest_unsafe_block: ThirBlock, ty: Type, span: Span);
@@ -505,11 +509,12 @@ relation thir_exprs_scope(expr: auto ThirExpr, inner: ThirExpr);
 relation thir_exprs_box(expr: auto ThirExpr, inner: ThirExpr);
 relation thir_exprs_if(expr: auto ThirExpr, cond: ThirExpr, then_expr: ThirExpr, else_expr: ThirExpr);
 
-relation thir_exprs_call(expr: auto ThirExpr, ty: Type, fun: ThirExpr, unsafety: Safety, abi: Abi, return_ty: Type);
+relation thir_exprs_call(expr: auto ThirExpr, ty: Type, fun: ThirExpr, unsafety: Safety, abi: Abi, return_ty: Type) keyed by expr;
 relation thir_exprs_call_arg(call: ThirExpr, index: ThirCallArgIndex, arg: ThirExpr);
-relation thir_exprs_call_const_target(fun: ThirExpr, def_id: DefPath);
+relation thir_exprs_call_const_target(fun: ThirExpr, def_id: DefPath) keyed by fun;
 relation thir_exprs_call_const_target_desc(fun: ThirExpr, target: InternedString, function_generics: InternedString, type_generics: InternedString);
 relation thir_exprs_call_const_target_self(fun: ThirExpr, typ: Type);
+relation thir_exprs_call_macro_backtrace(fun: ThirExpr, macro_path: InternedString) keyed by fun;
 
 relation thir_exprs_deref(expr: auto ThirExpr, inner: ThirExpr);
 relation thir_exprs_binary(expr: auto ThirExpr, op: ThirBinOp, lhs: ThirExpr, rhs: ThirExpr);
@@ -548,6 +553,7 @@ relation thir_adt_field_expr(adt: ThirExpr, field_idx: FieldIndex, expr: ThirExp
 relation thir_exprs_place_type_ascription(expr: auto ThirExpr, source: ThirExpr, user_ty_span: Span);
 relation thir_exprs_value_type_ascription(expr: auto ThirExpr, source: ThirExpr, user_ty_span: Span);
 relation thir_exprs_closure(expr: auto ThirExpr, closure_id: DefPath, movability: Movability);
+relation thir_exprs_closure_kind(closure_expr: ThirExpr, kind: ClosureKind);
 relation thir_closure_upvars(closure_expr: ThirExpr, index: u32, upvar: ThirExpr);
 relation thir_exprs_literal(expr: auto ThirExpr, lit: LitKind, neg: bool);
 relation thir_exprs_non_hir_literal(expr: auto ThirExpr, scalar: u128);
@@ -559,6 +565,9 @@ relation thir_exprs_inline_asm(expr: auto ThirExpr, );
 relation thir_exprs_offset_of(expr: auto ThirExpr, container: Type);
 relation thir_exprs_thread_local_ref(expr: auto ThirExpr, def_id: DefPath);
 relation thir_exprs_yield(expr: auto ThirExpr, value: ThirExpr);
+relation thir_exprs_place_unwrap_unsafe_binder(expr: auto ThirExpr, source: ThirExpr);
+relation thir_exprs_wrap_unsafe_binder(expr: auto ThirExpr, source: ThirExpr);
+relation thir_exprs_value_unwrap_unsafe_binder(expr: auto ThirExpr, source: ThirExpr);
 
 
 /// An item that is either a constant or a static.
@@ -573,10 +582,6 @@ relation global_asm_blocks(def_path: DefPath, item: auto Item, module: Module, n
 relation items(def_path: DefPath, item: auto Item, module: Module, name: Name, visibility: TyVisibility);
 /// MIR cfgs inside a specific item.
 relation mir_cfgs(item: Item, body_def_path: DefPath, root_scope: auto Scope);
-/// parent_scope, scope, scope's safety.
-/// `explicit_unsafe_group` is a unique identifier of a unsafe block within
-/// a function. If `ScopeSafety` is not `ExplicitUnsafe`, then it is 0.
-relation subscopes(parent: Scope, child: auto Scope, safety: ScopeSafety, check_mode: BlockCheckMode, explicit_unsafe_group: u32, span: Span);
 /// Information about spans: (span, call_site_span, expansion kind, location).
 relation spans(
     span: auto Span,
@@ -586,7 +591,7 @@ relation spans(
     file_name: SpanFileName,
     line: u16,
     col: u16,
-);
+) keyed by span;
 /// Additional information about a span that was created by a macro expansion.
 relation macro_expansions(
     span: Span,
@@ -609,9 +614,9 @@ relation type_defs(item: auto Item, typ: Type, def_path: DefPath, name: Interned
 ///
 /// **Note:** the fact that `typ` refers to a monomorphized type means that
 /// DefId in many cases is not a key (DefId + substitutions is a key).
-relation types(typ: auto Type, kind: TyKind);
+relation types(typ: auto Type, kind: TyKind) keyed by typ;
 relation types_primitive(typ: Type, primitive_kind: TyPrimitive);
-relation types_adt_def(typ: Type, def_path: DefPath, kind: AdtKind, c_repr: bool, is_phantom: bool);
+relation types_adt_def(typ: Type, def_path: DefPath, kind: AdtKind, c_repr: bool, is_phantom: bool) keyed by typ;
 relation types_adt_variant(adt: Type, index: AdtVariantIndex, def_path: DefPath, ident: InternedString);
 relation types_adt_field(field: auto Field, adt: Type, index: AdtVariantIndex, def_path: DefPath, ident: InternedString, visibility: TyVisibility, typ: Type);
 /// The given field is visible only in the given module and its children.
@@ -637,56 +642,9 @@ relation types_opaque(typ: Type, def_path: DefPath);
 relation types_inherent(typ: Type, def_path: DefPath);
 relation types_weak(typ: Type, def_path: DefPath);
 relation types_param(typ: Type, index: u32, name: InternedString);
+relation types_unsafe_binder(typ: Type);
 
 /// Traits.
 relation traits(item: auto Item, def_path: DefPath, name: InternedString, visibility: TyVisibility, is_auto: bool, is_marker: bool, unsafety: Safety);
 /// Items mentioned inside the trait.
 relation trait_items(trait_id: Item, def_path: DefPath, defaultness: Defaultness);
-
-/// Basic blocks.
-/// `is_cleanup` is true if the block is on the unwind path.
-relation basic_blocks(block: auto BasicBlock, mir: DefPath, kind: BasicBlockKind);
-/// Statements.
-relation statements(stmt: Statement, block: BasicBlock, index: StatementIndex, kind: StatementKind, scope: Scope);
-relation statements_assign_use(stmt: auto Statement, target_type: Type, operand: Operand);
-relation statements_assign_thead_local_ref(stmt: auto Statement, target_type: Type, def_path: DefPath);
-relation statements_assign_repeat(stmt: auto Statement, target_type: Type, operand: Operand, count: u64);
-relation statements_assign_ref(stmt: auto Statement, target_type: Type, source_type: Type, kind: BorrowKind);
-relation statements_assign_address(stmt: auto Statement, target_type: Type, source_type: Type, mutability: Mutability);
-relation statements_assign_len(stmt: auto Statement, target_type: Type, source_type: Type);
-relation statements_assign_cast(stmt: auto Statement, target_type: Type, kind: CastKind, operand: Operand, typ: Type);
-relation statements_assign_binary_op(stmt: auto Statement, target_type: Type, kind: BinOp, first: Operand, second: Operand);
-relation statements_assign_checked_binary_op(stmt: auto Statement, target_type: Type, kind: BinOp, first: Operand, second: Operand);
-relation statements_assign_nullary_op(stmt: auto Statement, target_type: Type, kind: NullOp, source_type: Type);
-relation statements_assign_unary_op(stmt: auto Statement, target_type: Type, kind: UnOp, operand: Operand);
-relation statements_assign_discriminant(stmt: auto Statement, target_type: Type, source_type: Type);
-relation statements_assign_aggregate(stmt: auto Statement, target_type: Type, kind: AggregateKind);
-relation statements_assign_aggregate_operands(stmt: Statement, index: OperandIndex, operand: Operand);
-relation statements_assign_shallow_init_box(stmt: auto Statement, operand: Operand, typ: Type);
-relation statements_assign_copy_for_deref(stmt: auto Statement, place_type: Type);
-relation statements_inline_asm_inputs(stmt: Statement, operand: Operand);
-relation statements_inline_asm_outputs(stmt: Statement, typ: Type);
-relation operands(operand: auto Operand, kind: OperandKind, typ: Type);
-/// Block terminators. Eeach block has exactly one terminator.
-relation terminators(block: BasicBlock, kind: TerminatorKind, scope: Scope);
-relation terminators_goto(block: BasicBlock, target: BasicBlock);
-relation terminators_switch_int(block: BasicBlock, discriminant: Operand);
-relation terminators_switch_int_targets(block: BasicBlock, condition_value: u128, target: BasicBlock);
-relation terminators_drop(block: BasicBlock, location: Type, target: BasicBlock);
-relation terminators_drop_and_replace(block: BasicBlock, location: Type, value: Operand, target: BasicBlock, unwind: BasicBlock);
-relation terminators_call(block: BasicBlock, call: auto FunctionCall, func: Operand, unsafety: Safety, abi: Abi, return_ty: Type, destination: BasicBlock, span: Span);
-relation terminators_call_arg(call: FunctionCall, index: CallArgIndex, arg: Operand);
-/// The called function or trait method.
-relation terminators_call_const_target(call: FunctionCall, def_path: DefPath);
-relation terminators_call_const_target_desc(call: FunctionCall, target: InternedString, function_generics: InternedString, type_generics: InternedString);
-/// The self argument of the called method.
-relation terminators_call_const_target_self(call: FunctionCall, typ: Type);
-/// For calls originating from a macro, the path of the top macro in the backtrace that's from a different crate than the call site.
-relation terminators_call_macro_backtrace(call: FunctionCall, macro_path: InternedString);
-relation terminators_assert(block: BasicBlock, cond: Operand, expected: bool, target: BasicBlock);
-relation terminators_yield(block: BasicBlock, value: Operand, resume: BasicBlock, drop: BasicBlock);
-relation terminators_false_edges(block: BasicBlock, real_target: BasicBlock, imaginary_target: BasicBlock);
-relation terminators_false_unwind(block: BasicBlock, real_target: BasicBlock);
-relation terminators_inline_asm(block: BasicBlock);
-/// `cleanup` is defined only if action is `Cleanup`.
-relation terminators_unwind_action(block: BasicBlock, action: UnwindAction, cleanup: BasicBlock);

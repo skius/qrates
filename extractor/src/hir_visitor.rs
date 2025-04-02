@@ -3,7 +3,6 @@
 // modified, or distributed except according to those terms.
 
 use crate::converters::ConvertInto;
-use crate::mir_visitor::MirVisitor;
 use crate::table_filler::TableFiller;
 use crate::thir_storage;
 use crate::thir_visitor::ThirVisitor;
@@ -11,6 +10,7 @@ use corpus_database::types::ThirBlock;
 use corpus_database::{tables::Tables, types};
 use hir::def_id::LocalDefId;
 use rustc_hir::def::DefKind;
+use rustc_hir::intravisit::VisitorExt;
 use rustc_hir::{
     self as hir,
     intravisit::{self, Visitor},
@@ -25,6 +25,7 @@ use rustc_span::Span;
 use std::collections::HashMap;
 use std::mem;
 
+extern crate rustc_abi;
 extern crate rustc_ast_ir;
 
 pub(crate) struct HirVisitor<'a, 'tcx> {
@@ -81,7 +82,7 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         def_id: types::DefPath,
         name: &str,
         visibility: types::TyVisibility,
-        abi: &'tcx rustc_target::spec::abi::Abi,
+        abi: &'tcx rustc_abi::ExternAbi,
         items: &'tcx [rustc_hir::ForeignItemRef],
         id: HirId,
     ) {
@@ -117,7 +118,7 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         );
         let old_item = mem::replace(&mut self.current_item, Some(item));
         self.visit_id(id);
-        self.visit_ty(typ);
+        self.visit_ty_unambig(typ);
         self.visit_nested_body(body_id);
         self.current_item = old_item;
     }
@@ -125,8 +126,8 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
     fn visit_mir(&mut self, body_id: rustc_span::def_id::LocalDefId, body: &mir::Body<'tcx>) {
         let error = format!("Mir outside of an item: {:?}", body.span);
         let item = self.current_item.expect(&error);
-        let mut mir_visitor = MirVisitor::new(self.tcx, item, body_id, body, &mut self.filler);
-        mir_visitor.visit();
+        let body_path = self.filler.resolve_local_def_id(body_id);
+        self.filler.tables.register_mir_cfgs(item, body_path);
     }
     /// Extract information from THIR.
     fn visit_thir(&mut self, thir: Thir<'tcx>, body_id: ExprId, def_path: types::DefPath) {
@@ -134,7 +135,7 @@ impl<'a, 'tcx> HirVisitor<'a, 'tcx> {
         let item = self.current_item.expect(&error);
         let (root_block,) = self.filler.tables.register_thir_bodies(item, def_path);
         let mut thir_visitor =
-            ThirVisitor::new(self.tcx, &thir, body_id, root_block, &mut self.filler);
+            ThirVisitor::new(self.tcx, &thir, body_id, root_block,  &mut self.filler);
         thir_visitor.visit();
     }
     fn visit_type(
@@ -251,7 +252,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                 intravisit::walk_item(self, item);
                 self.current_item = old_item;
             }
-            hir::ItemKind::GlobalAsm(_) => {
+            hir::ItemKind::GlobalAsm { .. } => {
                 self.filler.tables.register_global_asm_blocks(
                     def_path,
                     self.current_module,
@@ -305,7 +306,11 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
                     let trait_item_def_path = self
                         .filler
                         .resolve_local_def_id(trait_item.id.owner_id.def_id);
-                    let defaultness = self.tcx.hir().trait_item(trait_item.id).defaultness;
+                    let defaultness = self
+                        .tcx
+                        .hir()
+                        .expect_trait_item(trait_item.id.owner_id.def_id)
+                        .defaultness;
                     self.filler.tables.register_trait_items(
                         item_id,
                         trait_item_def_path,
@@ -319,7 +324,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
             hir::ItemKind::ExternCrate(_)
             | hir::ItemKind::Use(_, _)
             | hir::ItemKind::Macro(_, _)
-            | hir::ItemKind::Fn(_, _, _)
+            | hir::ItemKind::Fn { .. }
             | hir::ItemKind::TraitAlias(_, _) => {
                 let (item_id,) = self.filler.tables.register_items(
                     def_path,
@@ -435,7 +440,7 @@ impl<'a, 'tcx> Visitor<'tcx> for HirVisitor<'a, 'tcx> {
     fn visit_body(&mut self, body: &hir::Body<'tcx>) {
         intravisit::walk_body(self, body);
         let id = body.id();
-        let def_id = self.hir_map.body_owner_def_id(id);
+        let def_id = self.tcx.hir().body_owner_def_id(id);
         let def_kind = self.tcx.def_kind(def_id);
         let mir_body = match def_kind {
             DefKind::Const
